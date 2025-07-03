@@ -4,15 +4,20 @@
   "description": "DTF Messenger Chrome Extension - Chat functionality for DTF.ru",
   "type": "module",
   "scripts": {
-    "dev": "vite build --mode development --watch",
-    "build": "vue-tsc && vite build",
+    "dev": "node scripts/dev-reload.js",
+    "build": "vue-tsc && vite build && node scripts/build-extension.js",
     "build:dev": "vite build --mode development",
+    "build:zip": "npm run build && node scripts/build-extension.js --zip",
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
-    "type-check": "vue-tsc --noEmit"
+    "type-check": "vue-tsc --noEmit",
+    "clean": "rm -rf dist",
+    "watch": "vite build --mode development --watch",
+    "icons:create": "node scripts/create-icons.js",
+    "setup": "npm install && npm run icons:create"
   },
   "dependencies": {
     "vue": "^3.4.0",
@@ -29,6 +34,8 @@
     "@vue/test-utils": "^2.4.3",
     "@vue/tsconfig": "^0.5.0",
     "autoprefixer": "^10.4.16",
+    "canvas": "^2.11.2",
+    "chokidar": "^3.5.3",
     "eslint": "^8.56.0",
     "eslint-plugin-vue": "^9.19.0",
     "jsdom": "^23.0.1",

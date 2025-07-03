@@ -1,0 +1,289 @@
+/* DTF Theme CSS Variables and Custom Styles */
+
+/* CSS Custom Properties for Theme Switching */
+:root {
+  /* Colors */
+  --dtf-primary: #8000ff;
+  --dtf-primary-rgb: 128, 0, 255;
+
+  /* Light theme */
+  --dtf-bg: #ffffff;
+  --dtf-bg-secondary: #f8fafc;
+  --dtf-surface: #ffffff;
+  --dtf-surface-secondary: #f1f5f9;
+  --dtf-text: #1e293b;
+  --dtf-text-secondary: #64748b;
+  --dtf-text-muted: #94a3b8;
+  --dtf-border: #e2e8f0;
+  --dtf-border-secondary: #cbd5e1;
+  --dtf-hover: #f1f5f9;
+  --dtf-active: #e2e8f0;
+
+  /* Shadows */
+  --dtf-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --dtf-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* Transitions */
+  --dtf-transition: all 0.2s ease-in-out;
+  --dtf-transition-fast: all 0.15s ease-in-out;
+  --dtf-transition-slow: all 0.3s ease-in-out;
+}
+
+/* Dark theme */
+.dark {
+  --dtf-bg: #0f172a;
+  --dtf-bg-secondary: #1e293b;
+  --dtf-surface: #1e293b;
+  --dtf-surface-secondary: #334155;
+  --dtf-text: #f8fafc;
+  --dtf-text-secondary: #cbd5e1;
+  --dtf-text-muted: #94a3b8;
+  --dtf-border: #334155;
+  --dtf-border-secondary: #475569;
+  --dtf-hover: #334155;
+  --dtf-active: #475569;
+
+  --dtf-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+  --dtf-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3),
+    0 4px 6px -2px rgba(0, 0, 0, 0.2);
+}
+
+/* Base theme classes */
+.dtf-theme {
+  color-scheme: light;
+  background-color: var(--dtf-bg);
+  color: var(--dtf-text);
+  transition: var(--dtf-transition);
+}
+
+.dark .dtf-theme {
+  color-scheme: dark;
+}
+
+/* Custom focus styles */
+.dtf-focus {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+}
+
+.dark .dtf-focus {
+  @apply focus:ring-offset-dtf-dark-background;
+}
+
+/* Chat-specific styles */
+.chat-container {
+  background: var(--dtf-bg);
+  border: 1px solid var(--dtf-border);
+  box-shadow: var(--dtf-shadow-lg);
+}
+
+.chat-header {
+  background: var(--dtf-surface);
+  border-bottom: 1px solid var(--dtf-border);
+}
+
+.chat-message-list {
+  background: var(--dtf-bg-secondary);
+}
+
+.chat-input-container {
+  background: var(--dtf-surface);
+  border-top: 1px solid var(--dtf-border);
+}
+
+/* Message bubbles */
+.message-received {
+  background: var(--dtf-surface);
+  color: var(--dtf-text);
+  border: 1px solid var(--dtf-border);
+}
+
+.message-sent {
+  background: var(--dtf-primary);
+  color: white;
+}
+
+.message-time {
+  color: var(--dtf-text-muted);
+}
+
+/* Interactive elements */
+.dtf-interactive {
+  transition: var(--dtf-transition);
+  cursor: pointer;
+}
+
+.dtf-interactive:hover {
+  background-color: var(--dtf-hover);
+}
+
+.dtf-interactive:active {
+  background-color: var(--dtf-active);
+}
+
+/* Loading states */
+.dtf-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.dtf-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--dtf-border) 25%,
+    var(--dtf-bg-secondary) 50%,
+    var(--dtf-border) 75%
+  );
+  background-size: 200% 100%;
+  animation: dtf-skeleton-loading 1.5s infinite;
+}
+
+@keyframes dtf-skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Notification styles */
+.dtf-notification {
+  background: var(--dtf-surface);
+  border: 1px solid var(--dtf-border);
+  box-shadow: var(--dtf-shadow-lg);
+  color: var(--dtf-text);
+}
+
+.dtf-notification.success {
+  border-left: 4px solid theme("colors.success.500");
+}
+
+.dtf-notification.error {
+  border-left: 4px solid theme("colors.error.500");
+}
+
+.dtf-notification.warning {
+  border-left: 4px solid theme("colors.warning.500");
+}
+
+.dtf-notification.info {
+  border-left: 4px solid var(--dtf-primary);
+}
+
+/* Badge/counter styles */
+.dtf-badge {
+  background: var(--dtf-primary);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.375rem;
+  border-radius: 9999px;
+  min-width: 1.25rem;
+  text-align: center;
+  line-height: 1;
+}
+
+.dtf-badge.large {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  min-width: 1.5rem;
+}
+
+/* Dropdown styles */
+.dtf-dropdown {
+  background: var(--dtf-surface);
+  border: 1px solid var(--dtf-border);
+  box-shadow: var(--dtf-shadow-lg);
+  border-radius: theme("borderRadius.dtf-lg");
+}
+
+.dtf-dropdown-item {
+  color: var(--dtf-text);
+  padding: 0.5rem 0.75rem;
+  transition: var(--dtf-transition-fast);
+}
+
+.dtf-dropdown-item:hover {
+  background: var(--dtf-hover);
+}
+
+.dtf-dropdown-item.active {
+  background: rgba(var(--dtf-primary-rgb), 0.1);
+  color: var(--dtf-primary);
+}
+
+/* Modal/overlay styles */
+.dtf-overlay {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.dark .dtf-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.dtf-modal {
+  background: var(--dtf-surface);
+  border: 1px solid var(--dtf-border);
+  box-shadow: var(--dtf-shadow-lg);
+  border-radius: theme("borderRadius.dtf-xl");
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  .chat-container {
+    border-radius: 0;
+    border: none;
+    height: 100vh;
+  }
+}
+
+/* Animation helpers */
+.dtf-animate-in {
+  animation: dtf-fade-in 0.2s ease-out;
+}
+
+.dtf-animate-out {
+  animation: dtf-fade-out 0.2s ease-out;
+}
+
+@keyframes dtf-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dtf-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* Print styles */
+@media print {
+  .chat-container {
+    box-shadow: none;
+    border: 1px solid #000;
+  }
+
+  .dtf-theme {
+    background: white !important;
+    color: black !important;
+  }
+
+  .message-sent {
+    background: #f0f0f0 !important;
+    color: black !important;
+  }
+}

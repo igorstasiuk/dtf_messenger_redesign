@@ -1,18 +1,237 @@
-@import "tailwindcss/base";
-@import "tailwindcss/components";
-@import "tailwindcss/utilities";
+@import "../styles/dtf-theme.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* DTF Messenger Extension Styles */
+
+/* Base styles for the extension */
 .dtf-messenger-extension {
-  font-family: Inter, system-ui, sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
+  @apply font-dtf text-dtf-base text-dtf-text bg-dtf-background dtf-theme;
+
+  /* Ensure isolation from page styles */
+  all: initial;
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Reset any inherited styles */
+  button,
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+  }
 }
 
-/* Theme detection */
-@media (prefers-color-scheme: dark) {
+/* Dark mode support */
+.dtf-messenger-extension.dark {
+  @apply text-dtf-dark-text bg-dtf-dark-background;
+}
+
+/* Extension specific components */
+.dtf-chat-button {
+  @apply fixed top-4 right-20 z-sidebar bg-primary-500 text-white rounded-full p-3 shadow-dtf-lg hover:bg-primary-600 transition-all duration-200 dtf-focus;
+
+  /* Position relative to DTF header */
+  transform: translateY(0);
+}
+
+.dtf-chat-button:hover {
+  @apply shadow-dtf-purple-lg scale-105;
+}
+
+.dtf-chat-button .badge {
+  @apply absolute -top-1 -right-1 dtf-badge;
+}
+
+.dtf-channels-dropdown {
+  @apply absolute top-full right-0 mt-2 w-64 dtf-dropdown z-dropdown max-h-80 overflow-y-auto scrollbar-custom;
+}
+
+.dtf-channel-item {
+  @apply dtf-dropdown-item flex items-center justify-between;
+}
+
+.dtf-channel-item.unread {
+  @apply font-semibold;
+}
+
+.dtf-channel-item .unread-count {
+  @apply dtf-badge;
+}
+
+.dtf-chat-sidebar {
+  @apply fixed top-0 right-0 h-full w-sidebar bg-dtf-surface border-l border-dtf-border shadow-dtf-lg z-sidebar transform transition-transform duration-300 flex flex-col;
+}
+
+.dtf-chat-sidebar.hidden {
+  @apply translate-x-full;
+}
+
+.dtf-chat-sidebar.visible {
+  @apply translate-x-0;
+}
+
+.dtf-chat-header {
+  @apply chat-header flex items-center justify-between p-4 min-h-header;
+}
+
+.dtf-chat-content {
+  @apply flex-1 flex flex-col min-h-0;
+}
+
+.dtf-message-list {
+  @apply chat-message-list flex-1 p-4 space-y-3 overflow-y-auto scrollbar-custom;
+}
+
+.dtf-message-input {
+  @apply chat-input-container p-4;
+}
+
+.dtf-message-form {
+  @apply flex items-end gap-2;
+}
+
+.dtf-message-textarea {
+  @apply input-dtf resize-none min-h-[40px] max-h-32;
+}
+
+.dtf-send-button {
+  @apply btn-dtf-primary px-3 py-2 rounded-dtf;
+}
+
+.dtf-send-button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+/* Message styles */
+.dtf-message {
+  @apply flex flex-col space-y-1;
+}
+
+.dtf-message.own {
+  @apply items-end;
+}
+
+.dtf-message.other {
+  @apply items-start;
+}
+
+.dtf-message-author {
+  @apply text-dtf-sm font-medium text-dtf-text-secondary;
+}
+
+.dtf-message.own .dtf-message-author {
+  @apply text-right;
+}
+
+.dtf-message-bubble {
+  @apply message-bubble;
+}
+
+.dtf-message.own .dtf-message-bubble {
+  @apply message-bubble-sent;
+}
+
+.dtf-message.other .dtf-message-bubble {
+  @apply message-bubble-received;
+}
+
+.dtf-message-time {
+  @apply text-dtf-xs message-time;
+}
+
+.dtf-message-media {
+  @apply mt-2 rounded-dtf overflow-hidden;
+}
+
+.dtf-message-media img {
+  @apply max-w-full h-auto;
+}
+
+/* Loading states */
+.dtf-loading-message {
+  @apply dtf-skeleton h-12 rounded-dtf-lg;
+}
+
+.dtf-loading-channel {
+  @apply dtf-skeleton h-12 rounded-dtf;
+}
+
+.dtf-typing-indicator {
+  @apply flex items-center space-x-2 text-dtf-text-muted text-dtf-sm;
+}
+
+.dtf-typing-dots {
+  @apply flex space-x-1;
+}
+
+.dtf-typing-dot {
+  @apply w-2 h-2 bg-dtf-text-muted rounded-full animate-bounce;
+}
+
+.dtf-typing-dot:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.dtf-typing-dot:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+/* Error states */
+.dtf-error-message {
+  @apply bg-error-50 border border-error-200 text-error-800 p-3 rounded-dtf text-center;
+}
+
+.dark .dtf-error-message {
+  @apply bg-error-900 border-error-700 text-error-200;
+}
+
+.dtf-retry-button {
+  @apply btn-dtf-secondary text-dtf-sm mt-2;
+}
+
+/* Empty states */
+.dtf-empty-state {
+  @apply flex flex-col items-center justify-center p-8 text-center text-dtf-text-muted;
+}
+
+.dtf-empty-icon {
+  @apply w-16 h-16 mb-4 opacity-50;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .dtf-chat-sidebar {
+    @apply w-full;
+  }
+
+  .dtf-chat-button {
+    @apply bottom-4 top-auto;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
   .dtf-messenger-extension {
-    color-scheme: dark;
+    @apply contrast-more:border-2 contrast-more:border-black;
+  }
+
+  .dtf-message-bubble {
+    @apply contrast-more:border contrast-more:border-current;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .dtf-messenger-extension * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

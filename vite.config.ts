@@ -9,9 +9,6 @@ export default defineConfig({
     vue(),
     webExtension({
       manifest: "public/manifest.json",
-      webExtConfig: {
-        startUrl: "https://dtf.ru",
-      },
     }),
   ],
   resolve: {
@@ -29,14 +26,41 @@ export default defineConfig({
         popup: resolve(__dirname, "src/popup/index.html"),
       },
       output: {
-        entryFileNames: "[name].js",
-        chunkFileNames: "[name].js",
-        assetFileNames: "[name].[ext]",
+        entryFileNames: (chunkInfo) => {
+          // Keep service worker as .js for Chrome Extension compatibility
+          if (chunkInfo.name === "background") {
+            return "background/service-worker.js";
+          }
+          if (chunkInfo.name === "content") {
+            return "content/main.js";
+          }
+          return "[name].js";
+        },
+        chunkFileNames: "[name].[hash].js",
+        assetFileNames: (assetInfo) => {
+          // Handle CSS files
+          if (assetInfo.name?.endsWith(".css")) {
+            if (assetInfo.name.includes("content")) {
+              return "content/styles.css";
+            }
+            return "assets/[name].[ext]";
+          }
+          // Handle other assets
+          return "assets/[name].[ext]";
+        },
       },
     },
+    // Target ES2020 for Chrome Extension compatibility
+    target: "es2020",
+    // Disable minification in development
+    minify: process.env.NODE_ENV === "production",
   },
   define: {
     __VUE_OPTIONS_API__: false,
     __VUE_PROD_DEVTOOLS__: false,
+  },
+  // Ensure proper handling of Chrome extension APIs
+  esbuild: {
+    target: "es2020",
   },
 });
