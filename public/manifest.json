@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "DTF Messenger",
+  "version": "1.0.0",
+  "description": "Enhanced messaging experience for DTF.ru with modern UI and features",
+  "permissions": ["storage", "notifications", "activeTab"],
+  "host_permissions": [
+    "https://dtf.ru/*",
+    "https://api.dtf.ru/*",
+    "https://leonardo.osnova.io/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://dtf.ru/*"],
+      "js": ["content/main.js"],
+      "css": ["content/styles.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "DTF Messenger",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*"],
+      "matches": ["https://dtf.ru/*"]
+    }
+  ]
+}
