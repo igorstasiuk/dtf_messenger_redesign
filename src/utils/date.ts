@@ -109,3 +109,144 @@ function getPluralForm(
       return form5;
   }
 }
+
+/**
+ * Date formatting utilities based on DTF tampermonkey script
+ */
+
+/**
+ * Format date similar to the tampermonkey script date_format function
+ * @param date Unix timestamp in seconds
+ * @returns Formatted time string
+ */
+export function formatTimeAgo(date: number): string {
+  const minutesPast = Math.floor(((Date.now() / 1000) - date) / 60)
+  
+  if (minutesPast < 60) {
+    return minutesPast + 'м'
+  } else if (minutesPast < 24 * 60) {
+    return Math.floor(minutesPast / 60) + 'ч'
+  } else if (minutesPast < 24 * 7 * 60) {
+    return Math.floor(minutesPast / 60 / 24) + 'д'
+  } else if (minutesPast < 24 * 180 * 60) {
+    return new Date(date * 1000).toLocaleString('ru', {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC'
+    })
+  } else {
+    const formatted = new Date(date * 1000).toLocaleString('ru', {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC'
+    })
+    const year = new Date(date * 1000).getFullYear()
+    return `${formatted}<br/>${year}`
+  }
+}
+
+/**
+ * Format absolute time for message timestamps
+ */
+export function formatAbsoluteTime(date: number): string {
+  return new Date(date * 1000).toLocaleString('ru', {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+}
+
+/**
+ * Format just time (HH:MM) for recent messages
+ */
+export function formatTimeOnly(date: number): string {
+  return new Date(date * 1000).toLocaleString('ru', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+/**
+ * Check if date is today
+ */
+export function isToday(date: number): boolean {
+  const today = new Date()
+  const messageDate = new Date(date * 1000)
+  
+  return today.getDate() === messageDate.getDate() &&
+         today.getMonth() === messageDate.getMonth() &&
+         today.getFullYear() === messageDate.getFullYear()
+}
+
+/**
+ * Check if date is yesterday
+ */
+export function isYesterday(date: number): boolean {
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const messageDate = new Date(date * 1000)
+  
+  return yesterday.getDate() === messageDate.getDate() &&
+         yesterday.getMonth() === messageDate.getMonth() &&
+         yesterday.getFullYear() === messageDate.getFullYear()
+}
+
+/**
+ * Format message timestamp with adaptive formatting
+ */
+export function formatMessageTime(date: number): string {
+  if (isToday(date)) {
+    return formatTimeOnly(date)
+  } else if (isYesterday(date)) {
+    return `Вчера ${formatTimeOnly(date)}`
+  } else {
+    return formatAbsoluteTime(date)
+  }
+}
+
+/**
+ * Get relative time for channel list (compact format)
+ */
+export function formatChannelTime(date: number): string {
+  const minutesPast = Math.floor(((Date.now() / 1000) - date) / 60)
+  
+  if (minutesPast < 1) {
+    return 'Сейчас'
+  } else if (minutesPast < 60) {
+    return `${minutesPast}м`
+  } else if (minutesPast < 24 * 60) {
+    const hours = Math.floor(minutesPast / 60)
+    return `${hours}ч`
+  } else if (minutesPast < 7 * 24 * 60) {
+    const days = Math.floor(minutesPast / (24 * 60))
+    return `${days}д`
+  } else {
+    return new Date(date * 1000).toLocaleDateString('ru', {
+      day: 'numeric',
+      month: 'short'
+    })
+  }
+}
+
+/**
+ * Convert milliseconds timestamp to seconds (DTF API uses seconds)
+ */
+export function msToSeconds(ms: number): number {
+  return Math.floor(ms / 1000)
+}
+
+/**
+ * Convert seconds timestamp to milliseconds
+ */
+export function secondsToMs(seconds: number): number {
+  return seconds * 1000
+}
+
+/**
+ * Get current timestamp in seconds (for API calls)
+ */
+export function getCurrentTimestamp(): number {
+  return msToSeconds(Date.now())
+}

@@ -1,192 +1,113 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{vue,js,ts,jsx,tsx}",
-    "./public/**/*.html",
-  ],
-
-  // Enable dark mode with class strategy for manual control
+  content: ["./src/**/*.{js,ts,jsx,tsx,vue}", "./public/**/*.html"],
   darkMode: "class",
-
   theme: {
     extend: {
-      // DTF.ru Brand Colors
       colors: {
-        // Primary DTF purple
-        primary: {
-          50: "#f3e8ff",
-          100: "#e9d5ff",
-          200: "#d9a7ff",
-          300: "#c371ff",
-          400: "#a855f7",
-          500: "#8000ff", // Main DTF color
-          600: "#7c00e6",
-          700: "#6b00cc",
-          800: "#5a00b3",
-          900: "#4a0099",
-          950: "#2a0052",
-        },
-
-        // DTF Secondary colors
-        secondary: {
-          50: "#f8fafc",
-          100: "#f1f5f9",
-          200: "#e2e8f0",
-          300: "#cbd5e1",
-          400: "#94a3b8",
-          500: "#64748b",
-          600: "#475569",
-          700: "#334155",
-          800: "#1e293b",
-          900: "#0f172a",
-        },
-
-        // DTF Status colors
-        success: {
-          50: "#f0fdf4",
-          100: "#dcfce7",
-          200: "#bbf7d0",
-          300: "#86efac",
-          400: "#4ade80",
-          500: "#22c55e",
-          600: "#16a34a",
-          700: "#15803d",
-          800: "#166534",
-          900: "#14532d",
-        },
-
-        error: {
-          50: "#fef2f2",
-          100: "#fee2e2",
-          200: "#fecaca",
-          300: "#fca5a5",
-          400: "#f87171",
-          500: "#ef4444",
-          600: "#dc2626",
-          700: "#b91c1c",
-          800: "#991b1b",
-          900: "#7f1d1d",
-        },
-
-        warning: {
-          50: "#fffbeb",
-          100: "#fef3c7",
-          200: "#fde68a",
-          300: "#fcd34d",
-          400: "#fbbf24",
-          500: "#f59e0b",
-          600: "#d97706",
-          700: "#b45309",
-          800: "#92400e",
-          900: "#78350f",
-        },
-
-        // DTF specific UI colors
+        // DTF.ru Color Palette - Light Mode
         dtf: {
-          // Light theme
+          primary: "#1a73e8",
+          secondary: "#5f6368",
+          accent: "#8000ff",
+          orange: "#8000ff",
+          red: "#ea4335",
           background: "#ffffff",
-          "background-secondary": "#f8fafc",
-          surface: "#ffffff",
-          "surface-secondary": "#f1f5f9",
-          text: "#1e293b",
-          "text-secondary": "#64748b",
-          "text-muted": "#94a3b8",
-          border: "#e2e8f0",
-          "border-secondary": "#cbd5e1",
-
-          // Dark theme
-          "dark-background": "#0f172a",
-          "dark-background-secondary": "#1e293b",
-          "dark-surface": "#1e293b",
-          "dark-surface-secondary": "#334155",
-          "dark-text": "#f8fafc",
-          "dark-text-secondary": "#cbd5e1",
-          "dark-text-muted": "#94a3b8",
-          "dark-border": "#334155",
-          "dark-border-secondary": "#475569",
-
-          // Interactive elements
-          hover: "#f1f5f9",
-          "dark-hover": "#334155",
-          active: "#e2e8f0",
-          "dark-active": "#475569",
-
-          // Chat specific
-          "message-bg": "#f8fafc",
-          "dark-message-bg": "#1e293b",
-          "message-own": "#8000ff",
-          "message-own-text": "#ffffff",
-          "message-time": "#94a3b8",
+          surface: "#f8f9fa",
+          "on-primary": "#ffffff",
+          "on-secondary": "#ffffff",
+          "on-surface": "#202124",
+          "on-background": "#202124",
+          border: "#e8eaed",
+          "border-light": "#f1f3f4",
+          hover: "#f1f3f4",
+          active: "#e8f0fe",
+          text: {
+            primary: "#202124",
+            secondary: "#5f6368",
+            disabled: "#9aa0a6",
+            inverse: "#ffffff",
+          },
+          message: {
+            bubble: "#e3f2fd",
+            "bubble-own": "#8000ff",
+            "bubble-text": "#1565c0",
+            "bubble-text-own": "#ffffff",
+          },
+        },
+        // DTF.ru Color Palette - Dark Mode
+        "dtf-dark": {
+          primary: "#8ab4f8",
+          secondary: "#9aa0a6",
+          accent: "#bb86fc",
+          orange: "#bb86fc",
+          red: "#f28b82",
+          background: "#202124",
+          surface: "#303134",
+          "on-primary": "#202124",
+          "on-secondary": "#202124",
+          "on-surface": "#e8eaed",
+          "on-background": "#e8eaed",
+          border: "#5f6368",
+          "border-light": "#3c4043",
+          hover: "#3c4043",
+          active: "#1a73e8",
+          text: {
+            primary: "#e8eaed",
+            secondary: "#9aa0a6",
+            disabled: "#5f6368",
+            inverse: "#202124",
+          },
+          message: {
+            bubble: "#1e3a8a",
+            "bubble-own": "#6b46c1",
+            "bubble-text": "#bfdbfe",
+            "bubble-text-own": "#ffffff",
+          },
         },
       },
-
-      // Custom spacing for DTF components
+      fontFamily: {
+        sans: ["Inter", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "Monaco", "Consolas", "monospace"],
+      },
+      fontSize: {
+        xs: ["12px", "16px"],
+        sm: ["14px", "20px"],
+        base: ["16px", "24px"],
+        lg: ["18px", "28px"],
+        xl: ["20px", "28px"],
+        "2xl": ["24px", "32px"],
+      },
       spacing: {
         18: "4.5rem",
         88: "22rem",
-        128: "32rem",
-        sidebar: "320px",
-        header: "60px",
+        100: "25rem",
+        112: "28rem",
       },
-
-      // Custom border radius
       borderRadius: {
         dtf: "8px",
-        "dtf-sm": "4px",
         "dtf-lg": "12px",
         "dtf-xl": "16px",
       },
-
-      // Custom shadows
       boxShadow: {
-        dtf: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)",
-        "dtf-md":
-          "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+        dtf: "0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)",
+        "dtf-md": "0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06)",
         "dtf-lg":
-          "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-        "dtf-purple": "0 4px 14px 0 rgba(128, 0, 255, 0.39)",
-        "dtf-purple-lg": "0 8px 25px 0 rgba(128, 0, 255, 0.3)",
+          "0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05)",
+        "dtf-popover":
+          "0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04)",
       },
-
-      // Typography
-      fontFamily: {
-        dtf: [
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "Segoe UI",
-          "Roboto",
-          "sans-serif",
-        ],
-        "dtf-mono": [
-          "SF Mono",
-          "Monaco",
-          "Cascadia Code",
-          "Roboto Mono",
-          "monospace",
-        ],
-      },
-
-      fontSize: {
-        "dtf-xs": ["0.75rem", { lineHeight: "1rem" }],
-        "dtf-sm": ["0.875rem", { lineHeight: "1.25rem" }],
-        "dtf-base": ["1rem", { lineHeight: "1.5rem" }],
-        "dtf-lg": ["1.125rem", { lineHeight: "1.75rem" }],
-        "dtf-xl": ["1.25rem", { lineHeight: "1.75rem" }],
-      },
-
-      // Animations and transitions
       animation: {
         "fade-in": "fadeIn 0.2s ease-in-out",
         "fade-out": "fadeOut 0.2s ease-in-out",
-        "slide-in": "slideIn 0.3s ease-out",
-        "slide-out": "slideOut 0.3s ease-out",
-        "bounce-in": "bounceIn 0.4s ease-out",
-        "pulse-purple": "pulsePurple 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "slide-up": "slideUp 0.3s ease-out",
+        "slide-down": "slideDown 0.3s ease-out",
+        "slide-left": "slideLeft 0.3s ease-out",
+        "slide-right": "slideRight 0.3s ease-out",
+        "bounce-gentle": "bounceGentle 0.6s ease-in-out",
         shimmer: "shimmer 2s linear infinite",
-        typing: "typing 1.5s steps(3, end) infinite",
+        "pulse-gentle": "pulseGentle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
-
       keyframes: {
         fadeIn: {
           "0%": { opacity: "0" },
@@ -196,185 +117,128 @@ export default {
           "0%": { opacity: "1" },
           "100%": { opacity: "0" },
         },
-        slideIn: {
-          "0%": { transform: "translateX(100%)", opacity: "0" },
+        slideUp: {
+          "0%": { transform: "translateY(10px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+        slideDown: {
+          "0%": { transform: "translateY(-10px)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
+        },
+        slideLeft: {
+          "0%": { transform: "translateX(10px)", opacity: "0" },
           "100%": { transform: "translateX(0)", opacity: "1" },
         },
-        slideOut: {
-          "0%": { transform: "translateX(0)", opacity: "1" },
-          "100%": { transform: "translateX(100%)", opacity: "0" },
+        slideRight: {
+          "0%": { transform: "translateX(-10px)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
         },
-        bounceIn: {
-          "0%, 20%, 40%, 60%, 80%": {
-            transform: "translateY(0)",
-            animationTimingFunction: "cubic-bezier(0.215, 0.61, 0.355, 1)",
-          },
-          "40%": {
-            transform: "translateY(-30px)",
-            animationTimingFunction: "cubic-bezier(0.755, 0.05, 0.855, 0.06)",
-          },
-          "60%": {
-            transform: "translateY(-15px)",
-            animationTimingFunction: "cubic-bezier(0.755, 0.05, 0.855, 0.06)",
-          },
-          "80%": {
-            transform: "translateY(-4px)",
-            animationTimingFunction: "cubic-bezier(0.215, 0.61, 0.355, 1)",
-          },
-          "100%": {
-            transform: "translateY(0)",
-          },
-        },
-        pulsePurple: {
+        bounceGentle: {
           "0%, 100%": {
-            opacity: "1",
+            transform: "translateY(-5%)",
+            "animation-timing-function": "cubic-bezier(0.8, 0, 1, 1)",
           },
           "50%": {
-            opacity: "0.5",
+            transform: "translateY(0)",
+            "animation-timing-function": "cubic-bezier(0, 0, 0.2, 1)",
           },
         },
         shimmer: {
-          "0%": {
-            backgroundPosition: "-200px 0",
-          },
-          "100%": {
-            backgroundPosition: "calc(200px + 100%) 0",
-          },
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(100%)" },
         },
-        typing: {
-          "0%, 100%": {
-            content: '""',
-          },
-          "33%": {
-            content: '"."',
-          },
-          "66%": {
-            content: '".."',
-          },
+        pulseGentle: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.7" },
         },
       },
-
-      // Custom z-index values
-      zIndex: {
-        sidebar: "1000",
-        dropdown: "1010",
-        modal: "1020",
-        notification: "1030",
-        tooltip: "1040",
-      },
-
-      // Custom backdrop blur
-      backdropBlur: {
-        dtf: "8px",
+      transitionTimingFunction: {
+        dtf: "cubic-bezier(0.4, 0, 0.2, 1)",
+        "dtf-out": "cubic-bezier(0, 0, 0.2, 1)",
+        "dtf-in": "cubic-bezier(0.4, 0, 1, 1)",
       },
     },
   },
-
   plugins: [
-    // Custom utilities plugin
-    function ({ addUtilities, addComponents, theme }) {
-      // Custom utilities
-      addUtilities({
-        ".text-balance": {
-          "text-wrap": "balance",
-        },
-        ".scrollbar-hide": {
-          "-ms-overflow-style": "none",
-          "scrollbar-width": "none",
-          "&::-webkit-scrollbar": {
-            display: "none",
-          },
-        },
-        ".scrollbar-custom": {
-          "&::-webkit-scrollbar": {
-            width: "6px",
-            height: "6px",
-          },
-          "&::-webkit-scrollbar-track": {
-            background: theme("colors.dtf.border"),
-          },
-          "&::-webkit-scrollbar-thumb": {
-            background: theme("colors.dtf.text-muted"),
-            borderRadius: "3px",
-          },
-          "&::-webkit-scrollbar-thumb:hover": {
-            background: theme("colors.dtf.text-secondary"),
-          },
-        },
-        ".dark .scrollbar-custom": {
-          "&::-webkit-scrollbar-track": {
-            background: theme("colors.dtf.dark-border"),
-          },
-          "&::-webkit-scrollbar-thumb": {
-            background: theme("colors.dtf.dark-text-muted"),
-          },
-          "&::-webkit-scrollbar-thumb:hover": {
-            background: theme("colors.dtf.dark-text-secondary"),
-          },
-        },
-      });
-
-      // Custom components
+    function ({ addComponents, theme }) {
       addComponents({
+        // DTF Button Components
         ".btn-dtf": {
-          "@apply px-4 py-2 rounded-dtf font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2":
+          "@apply px-4 py-2 rounded-dtf font-medium transition-all duration-200":
             {},
+          "@apply focus:outline-none focus:ring-2 focus:ring-offset-2": {},
+          "@apply disabled:opacity-50 disabled:cursor-not-allowed": {},
         },
         ".btn-dtf-primary": {
-          "@apply btn-dtf bg-primary-500 text-white hover:bg-primary-600 active:bg-primary-700 shadow-dtf hover:shadow-dtf-md":
-            {},
+          "@apply btn-dtf bg-dtf-primary text-dtf-on-primary": {},
+          "@apply hover:bg-blue-600 focus:ring-dtf-primary": {},
+          "@apply dark:bg-dtf-dark-primary dark:text-dtf-dark-on-primary": {},
+          "@apply dark:hover:bg-blue-400": {},
         },
         ".btn-dtf-secondary": {
-          "@apply btn-dtf bg-dtf-surface border border-dtf-border text-dtf-text hover:bg-dtf-hover active:bg-dtf-active":
+          "@apply btn-dtf bg-dtf-surface text-dtf-secondary border border-dtf-border":
             {},
-          ".dark &": {
-            "@apply bg-dtf-dark-surface border-dtf-dark-border text-dtf-dark-text hover:bg-dtf-dark-hover active:bg-dtf-dark-active":
-              {},
-          },
-        },
-        ".btn-dtf-ghost": {
-          "@apply btn-dtf bg-transparent text-dtf-text-secondary hover:bg-dtf-hover hover:text-dtf-text active:bg-dtf-active":
+          "@apply hover:bg-dtf-hover focus:ring-dtf-secondary": {},
+          "@apply dark:bg-dtf-dark-surface dark:text-dtf-dark-secondary dark:border-dtf-dark-border":
             {},
-          ".dark &": {
-            "@apply text-dtf-dark-text-secondary hover:bg-dtf-dark-hover hover:text-dtf-dark-text active:bg-dtf-dark-active":
-              {},
-          },
+          "@apply dark:hover:bg-dtf-dark-hover": {},
         },
+        ".btn-dtf-accent": {
+          "@apply btn-dtf bg-dtf-accent text-dtf-on-primary": {},
+          "@apply hover:bg-purple-600 focus:ring-dtf-accent": {},
+          "@apply dark:bg-dtf-dark-accent dark:text-dtf-dark-on-primary": {},
+          "@apply dark:hover:bg-purple-400": {},
+        },
+
+        // DTF Card Components
         ".card-dtf": {
-          "@apply bg-dtf-surface border border-dtf-border rounded-dtf-lg shadow-dtf":
-            {},
-          ".dark &": {
-            "@apply bg-dtf-dark-surface border-dtf-dark-border": {},
-          },
+          "@apply bg-dtf-surface border border-dtf-border rounded-dtf-lg": {},
+          "@apply shadow-dtf transition-shadow duration-200": {},
+          "@apply dark:bg-dtf-dark-surface dark:border-dtf-dark-border": {},
         },
+        ".card-dtf-hover": {
+          "@apply card-dtf hover:shadow-dtf-md cursor-pointer": {},
+        },
+
+        // DTF Input Components
         ".input-dtf": {
-          "@apply w-full px-3 py-2 border border-dtf-border rounded-dtf bg-dtf-surface text-dtf-text placeholder-dtf-text-muted focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200":
+          "@apply w-full px-3 py-2 border border-dtf-border rounded-dtf": {},
+          "@apply bg-dtf-background text-dtf-text-primary placeholder-dtf-text-secondary":
             {},
-          ".dark &": {
-            "@apply border-dtf-dark-border bg-dtf-dark-surface text-dtf-dark-text placeholder-dtf-dark-text-muted":
-              {},
-          },
+          "@apply focus:outline-none focus:ring-2 focus:ring-dtf-primary focus:border-transparent":
+            {},
+          "@apply transition-colors duration-200": {},
+          "@apply dark:bg-dtf-dark-background dark:text-dtf-dark-text-primary":
+            {},
+          "@apply dark:border-dtf-dark-border dark:placeholder-dtf-dark-text-secondary":
+            {},
+          "@apply dark:focus:ring-dtf-dark-primary": {},
         },
+
+        // DTF Message Bubble Components
         ".message-bubble": {
-          "@apply max-w-xs lg:max-w-md px-4 py-2 rounded-dtf-lg shadow-dtf": {},
+          "@apply px-3 py-2 rounded-dtf max-w-xs break-words": {},
+          "@apply transition-colors duration-200": {},
         },
         ".message-bubble-received": {
-          "@apply message-bubble bg-dtf-message-bg text-dtf-text": {},
-          ".dark &": {
-            "@apply bg-dtf-dark-message-bg text-dtf-dark-text": {},
-          },
+          "@apply message-bubble bg-dtf-message-bubble text-dtf-message-bubble-text":
+            {},
+          "@apply dark:bg-dtf-dark-message-bubble dark:text-dtf-dark-message-bubble-text":
+            {},
         },
         ".message-bubble-sent": {
-          "@apply message-bubble bg-dtf-message-own text-dtf-message-own-text ml-auto":
+          "@apply message-bubble bg-dtf-message-bubble-own text-dtf-message-bubble-text-own":
+            {},
+          "@apply dark:bg-dtf-dark-message-bubble-own dark:text-dtf-dark-message-bubble-text-own":
             {},
         },
-        ".loading-shimmer": {
-          "@apply bg-gradient-to-r from-dtf-border via-dtf-background to-dtf-border bg-[length:200px_100%] animate-shimmer":
+
+        // DTF Popover Components
+        ".popover-dtf": {
+          "@apply bg-dtf-background border border-dtf-border rounded-dtf-lg shadow-dtf-popover":
             {},
-          ".dark &": {
-            "@apply from-dtf-dark-border via-dtf-dark-background to-dtf-dark-border":
-              {},
-          },
+          "@apply animate-slide-up": {},
+          "@apply dark:bg-dtf-dark-background dark:border-dtf-dark-border": {},
         },
       });
     },

@@ -1,195 +1,349 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
-import { dtfApi } from "@/utils/api";
+import { ref, computed, readonly } from "vue";
+import { dtfAPI } from "@/utils/api";
 import type { Channel } from "@/types/api";
+import { useAuthStore } from './auth';
 
 export const useChannelsStore = defineStore("channels", () => {
   // State
   const channels = ref<Channel[]>([]);
+  const activeChannelId = ref<number | null>(null);
   const isLoading = ref(false);
-  const isVisible = ref(false);
-  const searchQuery = ref("");
-  const lastUpdate = ref<number>(0);
-  const newMessagesCount = ref(0);
+  const error = ref<string | null>(null);
+  const lastFetch = ref<number | null>(null);
+  const unreadTotal = ref(0);
 
-  // Getters
-  const filteredChannels = computed(() => {
-    if (!searchQuery.value) {
-      return channels.value;
-    }
-
-    const query = searchQuery.value.toLowerCase();
-    return channels.value.filter(
-      (channel) =>
-        channel.title.toLowerCase().includes(query) ||
-        channel.lastMessage?.text?.toLowerCase().includes(query)
-    );
-  });
-
-  const totalUnreadCount = computed(() => {
-    return channels.value.reduce(
-      (total, channel) => total + channel.unreadCount,
-      0
-    );
+  // Computed
+  const activeChannel = computed(() => {
+    if (!activeChannelId.value) return null;
+    return channels.value.find(channel => channel.id === activeChannelId.value) || null;
   });
 
   const sortedChannels = computed(() => {
-    return [...filteredChannels.value].sort((a, b) => {
-      // Sort by last message time, most recent first
+    return [...channels.value].sort((a, b) => {
+      // Sort by last message time, then by unread count
       const aTime = a.lastMessage?.dtCreated || 0;
       const bTime = b.lastMessage?.dtCreated || 0;
-      return bTime - aTime;
+      
+      if (aTime !== bTime) {
+        return bTime - aTime; // Most recent first
+      }
+      
+      return b.unreadCount - a.unreadCount; // More unread first
     });
   });
 
+  const totalUnreadCount = computed(() => {
+    return channels.value.reduce((total, channel) => total + channel.unreadCount, 0);
+  });
+
+  const hasUnreadMessages = computed(() => {
+    return totalUnreadCount.value > 0;
+  });
+
   // Actions
-  const loadChannels = async (): Promise<void> => {
-    if (isLoading.value) {
-      return;
+  function setChannels(newChannels: Channel[]) {
+    channels.value = newChannels;
+    updateUnreadTotal();
+    lastFetch.value = Date.now();
+  }
+
+  function addChannel(channel: Channel) {
+    const existingIndex = channels.value.findIndex(c => c.id === channel.id);
+    
+    if (existingIndex >= 0) {
+      channels.value[existingIndex] = channel;
+    } else {
+      channels.value.unshift(channel);
+    }
+    
+    updateUnreadTotal();
+  }
+
+  function updateChannel(channelId: number, updates: Partial<Channel>) {
+    const index = channels.value.findIndex(c => c.id === channelId);
+    
+    if (index >= 0) {
+      channels.value[index] = { ...channels.value[index], ...updates };
+      updateUnreadTotal();
+    }
+  }
+
+  function removeChannel(channelId: number) {
+    const index = channels.value.findIndex(c => c.id === channelId);
+    
+    if (index >= 0) {
+      channels.value.splice(index, 1);
+      
+      if (activeChannelId.value === channelId) {
+        activeChannelId.value = null;
+      }
+      
+      updateUnreadTotal();
+    }
+  }
+
+  function setActiveChannel(channelId: number | null) {
+    activeChannelId.value = channelId;
+    
+    // Mark active channel as read
+    if (channelId) {
+      markChannelAsRead(channelId);
+    }
+  }
+
+  function markChannelAsRead(channelId: number) {
+    updateChannel(channelId, { unreadCount: 0 });
+  }
+
+  function updateUnreadCount(channelId: number, count: number) {
+    updateChannel(channelId, { unreadCount: count });
+  }
+
+  function updateUnreadTotal() {
+    unreadTotal.value = totalUnreadCount.value;
+  }
+
+  function setLoading(loading: boolean) {
+    isLoading.value = loading;
+  }
+
+  function setError(newError: string | null) {
+    error.value = newError;
+  }
+
+  function clearChannels() {
+    channels.value = [];
+    activeChannelId.value = null;
+    unreadTotal.value = 0;
+    lastFetch.value = null;
+  }
+
+  // API Actions
+  async function fetchChannels() {
+    const authStore = useAuthStore();
+    
+    if (!authStore.isAuthenticated) {
+      setError('Not authenticated');
+      return false;
     }
 
+    setLoading(true);
+    setError(null);
+
     try {
-      isLoading.value = true;
-      const fetchedChannels = await dtfApi.getChannels();
-      channels.value = fetchedChannels;
-      lastUpdate.value = Date.now();
-
-      console.log(`Loaded ${fetchedChannels.length} channels`);
-    } catch (error) {
-      console.error("Failed to load channels:", error);
-      throw error;
-    } finally {
-      isLoading.value = false;
-    }
-  };
-
-  const refreshChannels = async (): Promise<void> => {
-    await loadChannels();
-  };
-
-  const loadMessagesCounter = async (): Promise<void> => {
-    try {
-      const counter = await dtfApi.getMessagesCounter();
-      newMessagesCount.value = counter.counter;
-    } catch (error) {
-      console.error("Failed to load messages counter:", error);
-    }
-  };
-
-  const loadChannelByUserId = async (userId: string): Promise<void> => {
-    try {
-      // Load specific channel for direct messaging
-      const channel = await dtfApi.getChannel(userId);
-
-      // Add or update channel in the list
-      const existingIndex = channels.value.findIndex(
-        (c) => c.id === channel.id
-      );
-      if (existingIndex >= 0) {
-        channels.value[existingIndex] = channel;
+      const response = await dtfAPI.getChannels();
+      
+      if (response.success && response.result) {
+        setChannels(response.result.channels);
+        console.log(`Loaded ${response.result.channels.length} channels`);
+        return true;
       } else {
-        channels.value.unshift(channel);
+        setError(response.error?.message || 'Failed to load channels');
+        return false;
       }
     } catch (error) {
-      console.error("Failed to load channel for user:", userId, error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(errorMessage);
+      console.error('Failed to load channels:', error);
+      return false;
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
-  const getChannelById = (channelId: string): Channel | undefined => {
-    return channels.value.find((channel) => channel.id === channelId);
-  };
+  async function fetchChannel(channelId: number) {
+    const authStore = useAuthStore();
+    
+    if (!authStore.isAuthenticated) {
+      setError('Not authenticated');
+      return null;
+    }
 
-  const getChannelByUserId = (userId: string): Channel | undefined => {
-    // In DTF.ru, user ID and channel ID are the same for direct messages
-    return getChannelById(userId);
-  };
-
-  const updateChannelLastMessage = (channelId: string, message: any): void => {
-    const channel = getChannelById(channelId);
-    if (channel) {
-      channel.lastMessage = message;
-      // Move channel to top of the list
-      const index = channels.value.indexOf(channel);
-      if (index > 0) {
-        channels.value.splice(index, 1);
-        channels.value.unshift(channel);
+    try {
+      const response = await dtfAPI.getChannel(channelId);
+      
+      if (response.success && response.result) {
+        const channel = response.result.channel;
+        addChannel(channel);
+        return channel;
+      } else {
+        setError(response.error?.message || 'Failed to load channel');
+        return null;
       }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(errorMessage);
+      console.error('Failed to load channel:', error);
+      return null;
     }
-  };
+  }
 
-  const markChannelAsRead = (channelId: string): void => {
-    const channel = getChannelById(channelId);
-    if (channel) {
-      channel.unreadCount = 0;
+  async function createChannelWithUser(userId: number) {
+    const authStore = useAuthStore();
+    
+    if (!authStore.isAuthenticated) {
+      setError('Not authenticated');
+      return null;
     }
-  };
 
-  const incrementUnreadCount = (channelId: string): void => {
-    const channel = getChannelById(channelId);
-    if (channel) {
-      channel.unreadCount++;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await dtfAPI.getOrCreateChannelWithUser(userId);
+      
+      if (response.success && response.result) {
+        const channel = response.result.channel;
+        addChannel(channel);
+        setActiveChannel(channel.id);
+        console.log(`Created/found channel with user ${userId}`);
+        return channel;
+      } else {
+        setError(response.error?.message || 'Failed to create channel');
+        return null;
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(errorMessage);
+      console.error('Failed to create channel:', error);
+      return null;
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
-  const toggleVisibility = (): void => {
-    isVisible.value = !isVisible.value;
-  };
+  async function createChannel(data: { name: string; type: 'group' | 'direct' }) {
+    const authStore = useAuthStore();
+    
+    if (!authStore.isAuthenticated) {
+      setError('Not authenticated');
+      return null;
+    }
 
-  const setVisibility = (visible: boolean): void => {
-    isVisible.value = visible;
-  };
+    setLoading(true);
+    setError(null);
 
-  const setSearchQuery = (query: string): void => {
-    searchQuery.value = query;
-  };
+    try {
+      // For now, create a mock channel since we don't have the actual API endpoint
+      const mockChannel: Channel = {
+        id: Date.now(), // temporary ID
+        title: data.name,
+        picture: '',
+        lastMessage: undefined,
+        unreadCount: 0,
+        type: data.type === 'group' ? 'group' : 'private',
+        members: [],
+        isActive: false
+      };
 
-  const clearSearch = (): void => {
-    searchQuery.value = "";
-  };
+      addChannel(mockChannel);
+      setActiveChannel(mockChannel.id);
+      console.log(`Created channel: ${data.name}`);
+      return mockChannel;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(errorMessage);
+      console.error('Failed to create channel:', error);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Utility Functions
+  function getChannelById(channelId: number): Channel | null {
+    return channels.value.find(c => c.id === channelId) || null;
+  }
+
+  function findChannelByUserId(userId: number): Channel | null {
+    return channels.value.find(c => c.id === userId) || null;
+  }
+
+  function isChannelActive(channelId: number): boolean {
+    return activeChannelId.value === channelId;
+  }
 
   // Auto-refresh channels periodically
-  const startAutoRefresh = (): void => {
-    setInterval(async () => {
-      if (Date.now() - lastUpdate.value > 60000) {
-        // Refresh every minute
-        await loadMessagesCounter();
+  let refreshInterval: number | null = null;
 
-        // Only refresh channels list if it's been more than 5 minutes
-        if (Date.now() - lastUpdate.value > 300000) {
-          await refreshChannels();
-        }
+  function startAutoRefresh(intervalMs = 60000) { // 1 minute
+    if (refreshInterval) {
+      stopAutoRefresh();
+    }
+    
+    refreshInterval = window.setInterval(() => {
+      if (useAuthStore().isAuthenticated) {
+        fetchChannels();
       }
-    }, 30000); // Check every 30 seconds
-  };
+    }, intervalMs);
+  }
 
+  function stopAutoRefresh() {
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+      refreshInterval = null;
+    }
+  }
+
+  // Initialization
+  function initialize() {
+    // Load channels if authenticated
+    const authStore = useAuthStore();
+    if (authStore.isAuthenticated) {
+      fetchChannels();
+    }
+    
+    // Start auto-refresh
+    startAutoRefresh();
+  }
+
+  function destroy() {
+    stopAutoRefresh();
+    clearChannels();
+  }
+
+  // Public API
   return {
     // State
-    channels,
-    isLoading,
-    isVisible,
-    searchQuery,
-    newMessagesCount,
-
-    // Getters
-    filteredChannels,
-    totalUnreadCount,
+    channels: readonly(channels),
+    activeChannelId: readonly(activeChannelId),
+    isLoading: readonly(isLoading),
+    error: readonly(error),
+    lastFetch: readonly(lastFetch),
+    unreadTotal: readonly(unreadTotal),
+    
+    // Computed
+    activeChannel,
     sortedChannels,
-
+    totalUnreadCount,
+    hasUnreadMessages,
+    
     // Actions
-    loadChannels,
-    refreshChannels,
-    loadMessagesCounter,
-    loadChannelByUserId,
-    getChannelById,
-    getChannelByUserId,
-    updateChannelLastMessage,
+    setChannels,
+    addChannel,
+    updateChannel,
+    removeChannel,
+    setActiveChannel,
     markChannelAsRead,
-    incrementUnreadCount,
-    toggleVisibility,
-    setVisibility,
-    setSearchQuery,
-    clearSearch,
+    updateUnreadCount,
+    setLoading,
+    setError,
+    clearChannels,
+    
+    // API Actions
+    fetchChannels,
+    fetchChannel,
+    createChannelWithUser,
+    createChannel,
+    
+    // Utilities
+    getChannelById,
+    findChannelByUserId,
+    isChannelActive,
     startAutoRefresh,
+    stopAutoRefresh,
+    initialize,
+    destroy
   };
 });

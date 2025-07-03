@@ -6,10 +6,13 @@ import type {
   AuthUser,
   SendMessageRequest,
   GetMessagesParams,
-  CreateChannelRequest,
-  MessagesCounter,
   HealthCheckResponse,
+  GetChannelsResponse,
+  GetMessagesResponse,
+  SendMessageResponse,
+  MessagesCounterResponse
 } from "@/types/api";
+import { getCurrentTimestamp } from './date'
 
 /**
  * DTF Messenger API Service
@@ -18,420 +21,329 @@ import type {
  */
 export class DTFMessengerAPI {
   private baseURL = "https://api.dtf.ru/v2.5";
-  private authToken: string | null = null;
+  private accessToken: string | null = null;
 
-  constructor(token?: string) {
-    this.authToken = token || null;
+  constructor(accessToken?: string) {
+    if (accessToken) {
+      this.setAccessToken(accessToken);
+    }
   }
 
-  // Set authentication token
-  setAuthToken(token: string) {
-    this.authToken = token;
+  /**
+   * Set access token for authenticated requests
+   */
+  setAccessToken(token: string): void {
+    this.accessToken = token;
   }
 
-  // Get authorization headers
+  /**
+   * Get current access token
+   */
+  getAccessToken(): string | null {
+    return this.accessToken;
+  }
+
+  /**
+   * Clear access token
+   */
+  clearAccessToken(): void {
+    this.accessToken = null;
+  }
+
+  /**
+   * Get authorization headers
+   */
   private getAuthHeaders(): HeadersInit {
     const headers: HeadersInit = {
-      "Content-Type": "application/json",
-      Accept: "application/json",
+      "Accept": "application/json"
     };
 
-    if (this.authToken) {
-      headers["Authorization"] = `Bearer ${this.authToken}`;
+    if (this.accessToken) {
+      headers["JWTAuthorization"] = `Bearer ${this.accessToken}`;
     }
 
     return headers;
   }
 
-  // Generic API request method
-  private async request<T>(
+  /**
+   * Make authenticated API request
+   */
+  private async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<APIResponse<T>> {
     try {
-      const url = `${this.baseURL}${endpoint}`;
-      const response = await fetch(url, {
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
         ...options,
         headers: {
           ...this.getAuthHeaders(),
-          ...options.headers,
-        },
-        credentials: "include", // Important for DTF.ru cookies
-      });
-
-      // Handle non-JSON responses
-      const contentType = response.headers.get("content-type");
-      let data: any = null;
-
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        data = await response.text();
-      }
-
-      if (!response.ok) {
-        return {
-          success: false,
-          error:
-            data?.message ||
-            data ||
-            `HTTP ${response.status}: ${response.statusText}`,
-          status: response.status,
-        };
-      }
-
-      return {
-        success: true,
-        data: data as T,
-        status: response.status,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Network error",
-        status: 0,
-      };
-    }
-  }
-
-  // Authentication Methods
-  async checkAuthentication(): Promise<APIResponse<AuthUser>> {
-    return this.request<AuthUser>("/user/me");
-  }
-
-  async getUserProfile(userId?: string): Promise<APIResponse<AuthUser>> {
-    const endpoint = userId ? `/user/${userId}` : "/user/me";
-    return this.request<AuthUser>(endpoint);
-  }
-
-  async searchUsers(query: string): Promise<APIResponse<AuthUser[]>> {
-    return this.request<AuthUser[]>(
-      `/user/search?q=${encodeURIComponent(query)}`
-    );
-  }
-
-  // Channels Methods
-  async getChannels(): Promise<APIResponse<Channel[]>> {
-    return this.request<Channel[]>("/messenger/channels");
-  }
-
-  async getChannel(channelId: string): Promise<APIResponse<Channel>> {
-    return this.request<Channel>(`/messenger/channels/${channelId}`);
-  }
-
-  async createChannel(
-    data: CreateChannelRequest
-  ): Promise<APIResponse<Channel>> {
-    return this.request<Channel>("/messenger/channels", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async getMessagesCounter(): Promise<APIResponse<MessagesCounter>> {
-    return this.request<MessagesCounter>("/messenger/counter");
-  }
-
-  // Messages Methods
-  async getMessages(
-    channelId: string,
-    params: GetMessagesParams = {}
-  ): Promise<APIResponse<{ data: Message[]; has_more: boolean }>> {
-    const queryParams = new URLSearchParams();
-
-    if (params.limit) queryParams.append("limit", params.limit.toString());
-    if (params.before) queryParams.append("before", params.before);
-    if (params.after) queryParams.append("after", params.after);
-    if (params.since) queryParams.append("since", params.since);
-
-    const query = queryParams.toString();
-    const endpoint = `/messenger/channels/${channelId}/messages${
-      query ? `?${query}` : ""
-    }`;
-
-    return this.request<{ data: Message[]; has_more: boolean }>(endpoint);
-  }
-
-  async getMessage(
-    channelId: string,
-    messageId: string
-  ): Promise<APIResponse<Message>> {
-    return this.request<Message>(
-      `/messenger/channels/${channelId}/messages/${messageId}`
-    );
-  }
-
-  async sendMessage(
-    channelId: string,
-    data: SendMessageRequest
-  ): Promise<APIResponse<Message>> {
-    return this.request<Message>(`/messenger/channels/${channelId}/messages`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async markAsRead(
-    channelId: string,
-    messageId: string
-  ): Promise<APIResponse<void>> {
-    return this.request<void>(
-      `/messenger/channels/${channelId}/messages/${messageId}/read`,
-      {
-        method: "POST",
-      }
-    );
-  }
-
-  async deleteMessage(
-    channelId: string,
-    messageId: string
-  ): Promise<APIResponse<void>> {
-    return this.request<void>(
-      `/messenger/channels/${channelId}/messages/${messageId}`,
-      {
-        method: "DELETE",
-      }
-    );
-  }
-
-  // Media Upload Methods
-  async uploadMedia(file: File): Promise<APIResponse<MediaFile>> {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    // Don't set Content-Type header, let browser set it with boundary
-    return this.request<MediaFile>("/media/upload", {
-      method: "POST",
-      body: formData,
-      headers: {
-        // Remove Content-Type to let browser set multipart/form-data boundary
-        Authorization: this.authToken ? `Bearer ${this.authToken}` : "",
-      },
-    });
-  }
-
-  // Special DTF.ru Integration Methods
-
-  /**
-   * Get user ID from DTF.ru profile page
-   * Used when clicking "Write" button on user profiles
-   */
-  async getUserIdFromProfile(profileUrl: string): Promise<string | null> {
-    try {
-      const response = await fetch(profileUrl, {
-        credentials: "include",
-      });
-      const html = await response.text();
-
-      // Extract user ID from page HTML (DTF.ru specific)
-      const match =
-        html.match(/data-user-id="(\d+)"/) ||
-        html.match(/"user_id":(\d+)/) ||
-        html.match(/user\/(\d+)/);
-
-      return match ? match[1] : null;
-    } catch (error) {
-      console.error("Failed to extract user ID from profile:", error);
-      return null;
-    }
-  }
-
-  /**
-   * Create or get existing channel with user
-   * Based on user ID from profile page
-   */
-  async getOrCreateChannelWithUser(
-    userId: string
-  ): Promise<APIResponse<Channel>> {
-    // Try to get existing channel first
-    const existingChannel = await this.getChannel(userId);
-    if (existingChannel.success) {
-      return existingChannel;
-    }
-
-    // Create new channel if doesn't exist
-    return this.createChannel({
-      user_id: userId,
-      type: "direct",
-    });
-  }
-
-  /**
-   * Get current authenticated user info from DTF.ru
-   * Uses the same method as the Tampermonkey script
-   */
-  async getCurrentUser(): Promise<APIResponse<AuthUser>> {
-    try {
-      // Try multiple endpoints to get user info
-      const endpoints = ["/user/me", "/auth/check", "/profile"];
-
-      for (const endpoint of endpoints) {
-        const result = await this.request<AuthUser>(endpoint);
-        if (result.success && result.data) {
-          return result;
+          ...options.headers
         }
-      }
+      });
+
+      const data = await response.json();
 
       return {
-        success: false,
-        error: "Unable to get current user information",
-        status: 401,
+        success: response.ok,
+        result: data.result,
+        error: data.error || (!response.ok ? {
+          code: response.status,
+          message: response.statusText
+        } : undefined)
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Authentication error",
-        status: 401,
+        error: {
+          code: 0,
+          message: error instanceof Error ? error.message : 'Network error'
+        }
       };
     }
   }
 
+  // ==================== Auth Methods ====================
+
   /**
-   * Check if user has messenger access
-   * Some DTF.ru users might not have messenger enabled
+   * Check if user is authenticated (health check)
    */
-  async checkMessengerAccess(): Promise<APIResponse<{ hasAccess: boolean }>> {
-    try {
-      const response = await this.getChannels();
-      return {
-        success: true,
-        data: { hasAccess: response.success },
-        status: response.status,
-      };
-    } catch (error) {
-      return {
-        success: true,
-        data: { hasAccess: false },
-        status: 200,
-      };
-    }
+  async checkAuthentication(): Promise<APIResponse<HealthCheckResponse>> {
+    return this.makeRequest<HealthCheckResponse>('/health');
   }
 
   /**
-   * Get DTF.ru site settings that affect messenger
-   * Like theme, language, etc.
+   * Get current user profile
    */
-  async getSiteSettings(): Promise<
-    APIResponse<{ theme: "light" | "dark"; language: string }>
-  > {
-    try {
-      // Check document for theme class or user preferences
-      const isDark =
-        document.documentElement.classList.contains("dark") ||
-        document.body.classList.contains("dark-theme") ||
-        window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-      return {
-        success: true,
-        data: {
-          theme: isDark ? "dark" : "light",
-          language: document.documentElement.lang || "ru",
-        },
-        status: 200,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: "Failed to get site settings",
-        status: 500,
-      };
-    }
+  async getUserProfile(): Promise<APIResponse<AuthUser>> {
+    return this.makeRequest<AuthUser>('/user/me');
   }
 
-  // Utility Methods
+  // ==================== Channel Methods ====================
 
   /**
-   * Extract media URLs from DTF.ru content
-   * Handles DTF.ru specific media formats
+   * Get user's channels list
+   * Based on api__channels() from tampermonkey script
    */
-  extractMediaFromContent(content: string): string[] {
-    const mediaUrls: string[] = [];
+  async getChannels(): Promise<APIResponse<GetChannelsResponse>> {
+    return this.makeRequest<GetChannelsResponse>('/m/channels');
+  }
 
-    // DTF.ru image patterns
-    const imagePatterns = [
-      /https:\/\/dtf\.ru\/[^"\s]+\.(jpg|jpeg|png|gif|webp)/gi,
-      /https:\/\/leonardo\.osnova\.io\/[^"\s]+/gi,
-      /data-image-src="([^"]+)"/gi,
-    ];
+  /**
+   * Get specific channel information
+   * Based on api__channel() from tampermonkey script
+   */
+  async getChannel(channelId: number): Promise<APIResponse<{ channel: Channel }>> {
+    return this.makeRequest<{ channel: Channel }>(`/m/channel?id=${channelId}`);
+  }
 
-    imagePatterns.forEach((pattern) => {
-      const matches = content.match(pattern);
-      if (matches) {
-        mediaUrls.push(...matches);
-      }
+  /**
+   * Create new channel with user
+   */
+  async createChannel(userId: number): Promise<APIResponse<{ channel: Channel }>> {
+    const formData = new FormData();
+    formData.append('userId', userId.toString());
+
+    return this.makeRequest<{ channel: Channel }>('/m/create', {
+      method: 'POST',
+      body: formData
     });
-
-    return [...new Set(mediaUrls)]; // Remove duplicates
   }
 
   /**
-   * Format message content for DTF.ru display
-   * Handles links, mentions, etc.
+   * Get or create channel with specific user (for profile button)
    */
-  formatMessageContent(content: string): string {
-    return (
-      content
-        // Convert URLs to links
-        .replace(
-          /(https?:\/\/[^\s]+)/g,
-          '<a href="$1" target="_blank" rel="noopener">$1</a>'
-        )
-        // Convert @mentions to user links
-        .replace(/@(\w+)/g, '<span class="mention">@$1</span>')
-        // Basic HTML escaping for security
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        // Re-enable links after escaping
-        .replace(
-          /&lt;a href="([^"]+)" target="_blank" rel="noopener"&gt;([^&]+)&lt;\/a&gt;/g,
-          '<a href="$1" target="_blank" rel="noopener">$2</a>'
-        )
-        .replace(
-          /&lt;span class="mention"&gt;(@\w+)&lt;\/span&gt;/g,
-          '<span class="mention">$1</span>'
-        )
-    );
-  }
-
-  /**
-   * Check if API is available and working
-   */
-  async healthCheck(): Promise<APIResponse<HealthCheckResponse>> {
-    try {
-      const startTime = Date.now();
-      const response = await this.request<any>("/ping");
-      const responseTime = Date.now() - startTime;
-
-      if (response.success) {
+  async getOrCreateChannelWithUser(userId: number): Promise<APIResponse<{ channel: Channel }>> {
+    // First try to find existing channel
+    const channelsResponse = await this.getChannels();
+    if (channelsResponse.success && channelsResponse.result) {
+      const existingChannel = channelsResponse.result.channels.find(
+        channel => channel.id === userId
+      );
+      
+      if (existingChannel) {
         return {
           success: true,
-          data: {
-            status: "ok",
-            timestamp: Date.now(),
-            responseTime,
-          },
-          status: 200,
-        };
-      } else {
-        return {
-          success: false,
-          error: "API health check failed",
-          status: response.status || 500,
+          result: { channel: existingChannel }
         };
       }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : "Health check failed",
-        status: 0,
-      };
     }
+
+    // Create new channel if not found
+    return this.createChannel(userId);
+  }
+
+  // ==================== Message Methods ====================
+
+  /**
+   * Get messages for a channel
+   * Based on api__messages() from tampermonkey script
+   */
+  async getMessages(params: GetMessagesParams): Promise<APIResponse<GetMessagesResponse>> {
+    const { channelId, beforeTime, limit = 50 } = params;
+    let url = `/m/messages?channelId=${channelId}`;
+    
+    if (beforeTime) {
+      url += `&beforeTime=${beforeTime}`;
+    }
+    
+    if (limit) {
+      url += `&limit=${limit}`;
+    }
+
+    return this.makeRequest<GetMessagesResponse>(url);
+  }
+
+  /**
+   * Send message to channel
+   * Based on api__message_send() from tampermonkey script
+   */
+  async sendMessage(params: SendMessageRequest): Promise<APIResponse<SendMessageResponse>> {
+    const { channelId, text, media = [], ts, idTmp } = params;
+    
+    const formData = new FormData();
+    formData.append('channelId', channelId.toString());
+    formData.append('text', text);
+    formData.append('ts', (ts || getCurrentTimestamp()).toString());
+    formData.append('idTmp', (idTmp || getCurrentTimestamp()).toString());
+    formData.append('media', JSON.stringify(media));
+
+    return this.makeRequest<SendMessageResponse>('/m/send', {
+      method: 'POST',
+      body: formData
+    });
+  }
+
+  /**
+   * Mark messages as read
+   */
+  async markAsRead(channelId: number, messageIds: number[]): Promise<APIResponse<void>> {
+    const formData = new FormData();
+    formData.append('channelId', channelId.toString());
+    formData.append('messageIds', JSON.stringify(messageIds));
+
+    return this.makeRequest<void>('/m/read', {
+      method: 'POST',
+      body: formData
+    });
+  }
+
+  // ==================== Media Methods ====================
+
+  /**
+   * Upload media file
+   * Based on api__message_uploader() from tampermonkey script
+   */
+  async uploadFile(file: File): Promise<APIResponse<MediaFile>> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.makeRequest<MediaFile>('/uploader/upload', {
+      method: 'POST',
+      body: formData
+    });
+  }
+
+  // ==================== Counter Methods ====================
+
+  /**
+   * Get unread messages counter
+   * Based on api__messages_counter() from tampermonkey script
+   */
+  async getMessagesCounter(): Promise<APIResponse<MessagesCounterResponse>> {
+    return this.makeRequest<MessagesCounterResponse>('/m/counter');
+  }
+
+  // ==================== User Methods ====================
+
+  /**
+   * Search users by query
+   */
+  async searchUsers(query: string, limit = 10): Promise<APIResponse<{ users: AuthUser[] }>> {
+    return this.makeRequest<{ users: AuthUser[] }>(`/users/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  }
+
+  // ==================== DTF.ru Integration Methods ====================
+
+  /**
+   * Extract user ID from DTF profile URL
+   * Based on profile button logic from tampermonkey script
+   */
+  static getUserIdFromProfile(): number | null {
+    const urlParts = window.location.href.replace('https://dtf.ru/u/', '').split('-');
+    const userId = urlParts[0];
+    
+    if (Number.isInteger(Number(userId))) {
+      return Number(userId);
+    }
+    
+    return null;
+  }
+
+  /**
+   * Extract media from message content (for rendering)
+   */
+  static extractMediaFromContent(content: string): { text: string; media: MediaFile[] } {
+    // This would parse content and extract media URLs
+    // For now, return as-is
+    return {
+      text: content,
+      media: []
+    };
+  }
+
+  /**
+   * Format message content for display
+   */
+  static formatMessageContent(message: Message): string {
+    let content = message.text || '';
+    
+    // Escape HTML to prevent XSS (like in tampermonkey script)
+    content = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    
+    return content;
+  }
+
+  /**
+   * Get media preview URL
+   */
+  static getMediaPreviewUrl(media: MediaFile, size = '100x'): string {
+    if (media.type === 'image' && media.data.type !== 'gif') {
+      return `https://leonardo.osnova.io/${media.data.uuid}/-/preview/${size}/`;
+    }
+    
+    if (media.type === 'video' || media.data.type === 'gif') {
+      return `https://leonardo.osnova.io/${media.data.uuid}/-/format/mp4#t=0.1`;
+    }
+    
+    return `https://leonardo.osnova.io/${media.data.uuid}/`;
+  }
+
+  /**
+   * Get full media URL
+   */
+  static getMediaUrl(media: MediaFile): string {
+    return `https://leonardo.osnova.io/${media.data.uuid}/`;
+  }
+
+  // ==================== Utility Methods ====================
+
+  /**
+   * Health check endpoint
+   */
+  async healthCheck(): Promise<APIResponse<HealthCheckResponse>> {
+    return this.makeRequest<HealthCheckResponse>('/health');
+  }
+
+  /**
+   * Get API version
+   */
+  getAPIVersion(): string {
+    return 'v2.5';
   }
 }
 
 // Export singleton instance
 export const dtfAPI = new DTFMessengerAPI();
 
-// Export default instance for convenience
-export default dtfAPI;
+// Export class for custom instances
+export default DTFMessengerAPI;

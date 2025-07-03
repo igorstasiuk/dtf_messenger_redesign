@@ -1,267 +1,359 @@
-import { defineStore } from "pinia";
-import { ref, computed } from "vue";
-import { dtfApi } from "@/utils/api";
-import { useChannelsStore } from "./channels";
-import type { Message, Channel } from "@/types/api";
+import { defineStore } from 'pinia'
+import { ref, computed, readonly } from 'vue'
+import type { Message } from '@/types/api'
+import type { TypingUser } from '@/types/message'
+import { dtfAPI } from '@/utils/api'
+import { useAuthStore } from './auth'
+import { useChannelsStore } from './channels'
+import { getCurrentTimestamp } from '@/utils/date'
 
-export const useMessagesStore = defineStore("messages", () => {
+export const useMessagesStore = defineStore('messages', () => {
   // State
-  const currentChannelId = ref<string | null>(null);
-  const currentChannel = ref<Channel | null>(null);
-  const messages = ref<Message[]>([]);
-  const isLoading = ref(false);
-  const isLoadingMore = ref(false);
-  const hasMoreMessages = ref(true);
-  const lastMessageTime = ref<number>(0);
+  const messages = ref<Message[]>([])
+  const isLoading = ref(false)
+  const hasMoreMessages = ref(true)
+  const error = ref<string | null>(null)
+  const lastFetch = ref<number | null>(null)
+  const typingUsers = ref<TypingUser[]>([])
+  const scrollPosition = ref(0)
 
-  // Message input state
-  const messageText = ref("");
-  const attachedFiles = ref<File[]>([]);
-  const isUploading = ref(false);
-  const uploadProgress = ref(0);
+  // Message composition state
+  const draftText = ref('')
+  const uploadingFiles = ref<File[]>([])
+  const isUploading = ref(false)
+  const uploadProgress = ref<Record<string, number>>({})
 
-  // Getters
+  // Computed
   const sortedMessages = computed(() => {
-    return [...messages.value].sort((a, b) => a.dtCreated - b.dtCreated);
-  });
+    return [...messages.value].sort((a, b) => a.dtCreated - b.dtCreated)
+  })
 
-  const hasMessages = computed(() => messages.value.length > 0);
+  const unreadCount = computed(() => {
+    return messages.value.filter(message => !message.isRead).length
+  })
 
-  const canSendMessage = computed(() => {
-    return (
-      (messageText.value.trim().length > 0 || attachedFiles.value.length > 0) &&
-      !isUploading.value &&
-      currentChannelId.value !== null
-    );
-  });
+  const latestMessage = computed(() => {
+    const sorted = sortedMessages.value
+    return sorted.length > 0 ? sorted[sorted.length - 1] : null
+  })
+
+  const oldestMessage = computed(() => {
+    const sorted = sortedMessages.value
+    return sorted.length > 0 ? sorted[0] : null
+  })
 
   // Actions
-  const setCurrentChannel = async (channelId: string): Promise<void> => {
-    if (currentChannelId.value === channelId) {
-      return;
+  function setMessages(newMessages: Message[]) {
+    messages.value = newMessages
+    lastFetch.value = Date.now()
+  }
+
+  function addMessage(message: Message) {
+    const existingIndex = messages.value.findIndex(m => m.id === message.id)
+    
+    if (existingIndex >= 0) {
+      messages.value[existingIndex] = message
+    } else {
+      messages.value.push(message)
+    }
+  }
+
+  function prependMessages(newMessages: Message[]) {
+    const uniqueMessages = newMessages.filter(
+      newMsg => !messages.value.some(existing => existing.id === newMsg.id)
+    )
+    messages.value.unshift(...uniqueMessages)
+  }
+
+  function appendMessages(newMessages: Message[]) {
+    const uniqueMessages = newMessages.filter(
+      newMsg => !messages.value.some(existing => existing.id === newMsg.id)
+    )
+    messages.value.push(...uniqueMessages)
+  }
+
+  function updateMessage(messageId: number, updates: Partial<Message>) {
+    const index = messages.value.findIndex(m => m.id === messageId)
+    if (index >= 0) {
+      messages.value[index] = { ...messages.value[index], ...updates }
+    }
+  }
+
+  function removeMessage(messageId: number) {
+    const index = messages.value.findIndex(m => m.id === messageId)
+    if (index >= 0) {
+      messages.value.splice(index, 1)
+    }
+  }
+
+  function markAsRead(messageIds: number[]) {
+    messageIds.forEach(id => {
+      const message = messages.value.find(m => m.id === id)
+      if (message) {
+        message.isRead = true
+      }
+    })
+  }
+
+  function setLoading(loading: boolean) {
+    isLoading.value = loading
+  }
+
+  function setError(newError: string | null) {
+    error.value = newError
+  }
+
+  function clearMessages() {
+    messages.value = []
+    hasMoreMessages.value = true
+    lastFetch.value = null
+    clearTyping()
+    clearDraft()
+  }
+
+  // Typing indicators
+  function addTypingUser(user: TypingUser) {
+    const existingIndex = typingUsers.value.findIndex(u => u.id === user.id)
+    if (existingIndex >= 0) {
+      typingUsers.value[existingIndex] = user
+    } else {
+      typingUsers.value.push(user)
     }
 
-    try {
-      isLoading.value = true;
-      currentChannelId.value = channelId;
+    setTimeout(() => {
+      removeTypingUser(user.id)
+    }, 5000)
+  }
 
-      // Load channel info
-      currentChannel.value = await dtfApi.getChannel(channelId);
-
-      // Load messages
-      await loadMessages(channelId);
-
-      // Mark channel as read
-      const channelsStore = useChannelsStore();
-      channelsStore.markChannelAsRead(channelId);
-    } catch (error) {
-      console.error("Failed to set current channel:", error);
-      throw error;
-    } finally {
-      isLoading.value = false;
+  function removeTypingUser(userId: number) {
+    const index = typingUsers.value.findIndex(u => u.id === userId)
+    if (index >= 0) {
+      typingUsers.value.splice(index, 1)
     }
-  };
+  }
 
-  const loadMessages = async (
-    channelId: string,
-    beforeTime?: number
-  ): Promise<void> => {
+  function clearTyping() {
+    typingUsers.value = []
+  }
+
+  // Typing management helpers
+  function setTyping(isTyping: boolean) {
+    const authStore = useAuthStore()
+    if (!authStore.user) return
+    
+    if (isTyping) {
+      addTypingUser({
+        id: authStore.user.id,
+        name: authStore.user.name || 'User',
+        avatar: authStore.user.avatar_url || '',
+        startedAt: Date.now()
+      })
+    } else {
+      removeTypingUser(authStore.user.id)
+    }
+  }
+
+  // Draft management
+  function setDraftText(text: string) {
+    draftText.value = text
+  }
+
+  function clearDraft() {
+    draftText.value = ''
+    uploadingFiles.value = []
+    uploadProgress.value = {}
+  }
+
+  function setScrollPosition(position: number) {
+    scrollPosition.value = position
+  }
+
+  // API Actions
+  async function fetchMessages(channelId: number, beforeTime?: number, limit = 50) {
+    const authStore = useAuthStore()
+    
+    if (!authStore.isAuthenticated) {
+      setError('Not authenticated')
+      return false
+    }
+
+    setLoading(true)
+    setError(null)
+
     try {
-      const fetchedMessages = await dtfApi.getMessages(channelId, beforeTime);
-
-      if (beforeTime) {
-        // Loading older messages (pagination)
-        messages.value = [...fetchedMessages, ...messages.value];
+      const response = await dtfAPI.getMessages({
+        channelId,
+        beforeTime,
+        limit
+      })
+      
+      if (response.success && response.result) {
+        const newMessages = response.result.messages
+        
+        if (beforeTime) {
+          prependMessages(newMessages)
+        } else {
+          setMessages(newMessages)
+        }
+        
+        hasMoreMessages.value = newMessages.length === limit
+        
+        console.log(`DTF Messenger: Loaded ${newMessages.length} messages for channel ${channelId}`)
+        return true
       } else {
-        // Loading latest messages
-        messages.value = fetchedMessages;
-        if (fetchedMessages.length > 0) {
-          lastMessageTime.value = Math.max(
-            ...fetchedMessages.map((m) => m.dtCreated)
-          );
-        }
+        setError(response.error?.message || 'Failed to load messages')
+        return false
       }
-
-      // Check if there are more messages to load
-      hasMoreMessages.value = fetchedMessages.length >= 20; // Assuming 20 is the page size
-
-      console.log(
-        `Loaded ${fetchedMessages.length} messages for channel ${channelId}`
-      );
     } catch (error) {
-      console.error("Failed to load messages:", error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setError(errorMessage)
+      console.error('DTF Messenger: Error fetching messages:', error)
+      return false
+    } finally {
+      setLoading(false)
     }
-  };
+  }
 
-  const loadMoreMessages = async (): Promise<void> => {
-    if (
-      !currentChannelId.value ||
-      isLoadingMore.value ||
-      !hasMoreMessages.value
-    ) {
-      return;
+  async function sendMessage(params: { channelId: number, text: string, media?: File[], type?: string }) {
+    const { channelId, text, media = [], type: _type = 'text' } = params
+    const authStore = useAuthStore()
+    
+    if (!authStore.isAuthenticated) {
+      setError('Not authenticated')
+      return null
     }
+
+    if (!text.trim() && media.length === 0) {
+      setError('Message cannot be empty')
+      return null
+    }
+
+    setError(null)
 
     try {
-      isLoadingMore.value = true;
-      const oldestMessage = messages.value[0];
-      const beforeTime = oldestMessage ? oldestMessage.dtCreated : undefined;
-
-      await loadMessages(currentChannelId.value, beforeTime);
-    } catch (error) {
-      console.error("Failed to load more messages:", error);
-    } finally {
-      isLoadingMore.value = false;
-    }
-  };
-
-  const sendMessage = async (): Promise<void> => {
-    if (!canSendMessage.value || !currentChannelId.value) {
-      return;
-    }
-
-    try {
-      isUploading.value = true;
-      uploadProgress.value = 0;
-
-      let mediaFiles = [];
-
-      // Upload attached files
-      if (attachedFiles.value.length > 0) {
-        uploadProgress.value = 20;
-
-        for (const file of attachedFiles.value) {
-          const mediaFile = await dtfApi.uploadMedia(file);
-          mediaFiles.push(mediaFile);
-          uploadProgress.value += 60 / attachedFiles.value.length;
+      let uploadedMedia: any[] = []
+      
+      if (media.length > 0) {
+        isUploading.value = true
+        
+        for (const file of media) {
+          try {
+            const uploadResponse = await dtfAPI.uploadFile(file)
+            if (uploadResponse.success && uploadResponse.result) {
+              uploadedMedia.push(uploadResponse.result)
+            }
+          } catch (uploadError) {
+            console.error('DTF Messenger: Failed to upload file:', uploadError)
+          }
         }
+        
+        isUploading.value = false
       }
 
-      uploadProgress.value = 90;
-
-      // Send message
-      await dtfApi.sendMessage(
-        currentChannelId.value,
-        messageText.value,
-        mediaFiles
-      );
-
-      uploadProgress.value = 100;
-
-      // Clear input
-      clearMessageInput();
-
-      // Reload messages to get the new message
-      await loadMessages(currentChannelId.value);
-
-      // Update channel's last message
-      const channelsStore = useChannelsStore();
-      const newMessage = messages.value[messages.value.length - 1];
-      if (newMessage) {
-        channelsStore.updateChannelLastMessage(
-          currentChannelId.value,
-          newMessage
-        );
+      const response = await dtfAPI.sendMessage({
+        channelId,
+        text: text.trim(),
+        media: uploadedMedia,
+        ts: getCurrentTimestamp(),
+        idTmp: getCurrentTimestamp().toString()
+      })
+      
+      if (response.success && response.result) {
+        const newMessage = response.result.message
+        addMessage(newMessage)
+        
+        const channelsStore = useChannelsStore()
+        channelsStore.updateChannel(channelId, {
+          lastMessage: newMessage
+        })
+        
+        clearDraft()
+        console.log('DTF Messenger: Message sent successfully')
+        return newMessage
+      } else {
+        setError(response.error?.message || 'Failed to send message')
+        return null
       }
     } catch (error) {
-      console.error("Failed to send message:", error);
-      throw error;
-    } finally {
-      isUploading.value = false;
-      uploadProgress.value = 0;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      setError(errorMessage)
+      console.error('DTF Messenger: Error sending message:', error)
+      return null
     }
-  };
+  }
 
-  const addAttachedFile = (file: File): void => {
-    // Check file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      throw new Error("Файл слишком большой. Максимальный размер: 10MB");
+  async function markChannelAsRead(channelId: number) {
+    const unreadMessages = messages.value.filter(m => !m.isRead)
+    if (unreadMessages.length === 0) return
+
+    const messageIds = unreadMessages.map(m => m.id)
+    
+    try {
+      const response = await dtfAPI.markAsRead(channelId, messageIds)
+      if (response.success) {
+        markAsRead(messageIds)
+        
+        const channelsStore = useChannelsStore()
+        channelsStore.updateUnreadCount(channelId, 0)
+      }
+    } catch (error) {
+      console.error('DTF Messenger: Error marking messages as read:', error)
     }
+  }
 
-    // Check file type
-    const allowedTypes = ["image/", "video/", "audio/", "application/pdf"];
-    const isAllowed = allowedTypes.some((type) => file.type.startsWith(type));
-    if (!isAllowed) {
-      throw new Error("Неподдерживаемый тип файла");
-    }
+  // Alias for component compatibility
+  function loadMessages(channelId: number) {
+    return fetchMessages(channelId)
+  }
 
-    attachedFiles.value.push(file);
-  };
-
-  const removeAttachedFile = (index: number): void => {
-    attachedFiles.value.splice(index, 1);
-  };
-
-  const clearMessageInput = (): void => {
-    messageText.value = "";
-    attachedFiles.value = [];
-  };
-
-  const setMessageText = (text: string): void => {
-    messageText.value = text;
-  };
-
-  const addNewMessage = (message: Message): void => {
-    // Add new message to the current conversation
-    if (currentChannelId.value === message.author.id) {
-      messages.value.push(message);
-      lastMessageTime.value = message.dtCreated;
-
-      // Update channel's last message and unread count
-      const channelsStore = useChannelsStore();
-      channelsStore.updateChannelLastMessage(currentChannelId.value, message);
-
-      // Don't increment unread count if this is the current channel and user is actively viewing it
-      // This would typically be managed by a focus/visibility detection system
-    }
-  };
-
-  const clearCurrentChannel = (): void => {
-    currentChannelId.value = null;
-    currentChannel.value = null;
-    messages.value = [];
-    hasMoreMessages.value = true;
-    lastMessageTime.value = 0;
-    clearMessageInput();
-  };
-
-  const refreshCurrentChannel = async (): Promise<void> => {
-    if (currentChannelId.value) {
-      await loadMessages(currentChannelId.value);
-    }
-  };
-
+  // Public API
   return {
     // State
-    currentChannelId,
-    currentChannel,
-    messages,
-    isLoading,
-    isLoadingMore,
-    hasMoreMessages,
-    messageText,
-    attachedFiles,
-    isUploading,
-    uploadProgress,
-
-    // Getters
+    messages: readonly(messages),
+    isLoading: readonly(isLoading),
+    hasMoreMessages: readonly(hasMoreMessages),
+    error: readonly(error),
+    lastFetch: readonly(lastFetch),
+    typingUsers: readonly(typingUsers),
+    scrollPosition: readonly(scrollPosition),
+    draftText: readonly(draftText),
+    uploadingFiles: readonly(uploadingFiles),
+    isUploading: readonly(isUploading),
+    uploadProgress: readonly(uploadProgress),
+    
+    // Computed
     sortedMessages,
-    hasMessages,
-    canSendMessage,
-
+    unreadCount,
+    latestMessage,
+    oldestMessage,
+    
     // Actions
-    setCurrentChannel,
+    setMessages,
+    addMessage,
+    prependMessages,
+    appendMessages,
+    updateMessage,
+    removeMessage,
+    markAsRead,
+    setLoading,
+    setError,
+    clearMessages,
+    
+    // Typing
+    addTypingUser,
+    removeTypingUser,
+    clearTyping,
+    setTyping,
+    
+    // Draft
+    setDraftText,
+    clearDraft,
+    setScrollPosition,
+    
+    // API Actions
+    fetchMessages,
     loadMessages,
-    loadMoreMessages,
     sendMessage,
-    addAttachedFile,
-    removeAttachedFile,
-    clearMessageInput,
-    setMessageText,
-    addNewMessage,
-    clearCurrentChannel,
-    refreshCurrentChannel,
-  };
-});
+    markChannelAsRead
+  }
+}) 

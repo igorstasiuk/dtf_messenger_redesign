@@ -1,289 +1,272 @@
 import { ref, computed, watch, nextTick } from "vue";
 import { useMessagesStore } from "@/stores/messages";
 import { useChannelsStore } from "@/stores/channels";
-import { useAPI } from "./useAPI";
-import { useDebounce, useIntersectionObserver } from "@vueuse/core";
-import type { Message, SendMessageRequest } from "@/types/api";
 
 /**
- * Messages composable for DTF Messenger
- * Handles message loading, sending, and UI interactions
+ * Messages composable with lazy loading and optimistic updates
  */
-export function useMessages(channelId?: string) {
+export function useMessages(channelId?: number) {
   const messagesStore = useMessagesStore();
   const channelsStore = useChannelsStore();
-  const { useMessages: useMessagesAPI } = useAPI();
-  const messagesAPI = useMessagesAPI();
 
   // Local state
-  const messageInput = ref("");
-  const isTyping = ref(false);
-  const typingUsers = ref<Set<string>>(new Set());
-  const loadMoreTrigger = ref<HTMLElement>();
-  const messageListContainer = ref<HTMLElement>();
+  const currentChannelId = ref<number | null>(channelId || null);
+  const isIntersecting = ref(false);
+  const hasInitialized = ref(false);
 
-  // Debounced typing indicator
-  const debouncedTyping = useDebounce(isTyping, 1000);
+  // Computed
+  const messages = computed(() => messagesStore.sortedMessages);
+  const isLoading = computed(() => messagesStore.isLoading);
+  const hasMoreMessages = computed(() => messagesStore.hasMoreMessages);
+  const error = computed(() => messagesStore.error);
+  const draftText = computed(() => messagesStore.draftText);
+  const isUploading = computed(() => messagesStore.isUploading);
+  const typingUsers = computed(() => messagesStore.typingUsers);
 
-  // Computed properties
-  const currentChannelId = computed(
-    () => channelId || channelsStore.activeChannelId
-  );
-  const messages = computed(() => {
-    if (!currentChannelId.value) return [];
-    return messagesStore.getMessages(currentChannelId.value);
-  });
-  const hasMoreMessages = computed(() => {
-    if (!currentChannelId.value) return false;
-    return messagesStore.hasMore(currentChannelId.value);
-  });
-  const isLoadingMessages = computed(() => messagesStore.loading);
-  const isSendingMessage = computed(() => messagesAPI.messagesLoading.value);
-
-  // Intersection observer for lazy loading
-  useIntersectionObserver(
-    loadMoreTrigger,
-    ([{ isIntersecting }]) => {
-      if (isIntersecting && hasMoreMessages.value && !isLoadingMessages.value) {
-        loadMoreMessages();
+  // Actions
+  function setChannelId(newChannelId: number | null) {
+    if (currentChannelId.value !== newChannelId) {
+      currentChannelId.value = newChannelId;
+      if (newChannelId) {
+        loadMessages(newChannelId);
+      } else {
+        messagesStore.clearMessages();
       }
-    },
-    {
-      threshold: 0.1,
+    }
+  }
+
+  async function loadMessages(channelId: number, beforeTime?: number) {
+    if (!channelId) return false;
+
+    try {
+      const success = await messagesStore.fetchMessages(channelId, beforeTime);
+      
+      if (success && !beforeTime) {
+        // Mark channel as active and read
+        channelsStore.setActiveChannel(channelId);
+        await markAsRead();
+      }
+      
+      return success;
+    } catch (error) {
+      console.error('DTF Messenger: Error loading messages:', error);
+      return false;
+    }
+  }
+
+  async function loadMoreMessages() {
+    if (!currentChannelId.value || !hasMoreMessages.value || isLoading.value) {
+      return false;
+    }
+
+    const oldestMessage = messagesStore.oldestMessage;
+    if (!oldestMessage) return false;
+
+    return loadMessages(currentChannelId.value, oldestMessage.dtCreated);
+  }
+
+  async function sendMessage(text: string, files: File[] = []) {
+    if (!currentChannelId.value || (!text.trim() && files.length === 0)) {
+      return null;
+    }
+
+    try {
+      const message = await messagesStore.sendMessage({
+        channelId: currentChannelId.value,
+        text,
+        media: files
+      });
+      
+      if (message) {
+        // Scroll to bottom after sending
+        await nextTick();
+        scrollToBottom();
+        
+        // Update channel last activity
+        if (channelsStore.activeChannel) {
+          channelsStore.updateChannel(currentChannelId.value, {
+            lastMessage: message
+          });
+        }
+      }
+      
+      return message;
+    } catch (error) {
+      console.error('DTF Messenger: Error sending message:', error);
+      return null;
+    }
+  }
+
+  async function markAsRead() {
+    if (!currentChannelId.value) return;
+
+    try {
+      await messagesStore.markChannelAsRead(currentChannelId.value);
+    } catch (error) {
+      console.error('DTF Messenger: Error marking messages as read:', error);
+    }
+  }
+
+  function setDraftText(text: string) {
+    messagesStore.setDraftText(text);
+  }
+
+  function clearDraft() {
+    messagesStore.clearDraft();
+  }
+
+  function clearError() {
+    messagesStore.setError(null);
+  }
+
+  // Typing indicators
+  function addTypingUser(user: any) {
+    messagesStore.addTypingUser(user);
+  }
+
+  function removeTypingUser(userId: number) {
+    messagesStore.removeTypingUser(userId);
+  }
+
+  // Scroll management
+  function setScrollPosition(position: number) {
+    messagesStore.setScrollPosition(position);
+  }
+
+  function scrollToBottom() {
+    setScrollPosition(0)
+  }
+
+  function shouldAutoScroll(): boolean {
+    // Auto-scroll if user is near the bottom (within 100px)
+    return messagesStore.scrollPosition <= 100
+  }
+
+  // Intersection Observer for lazy loading
+  function setupIntersectionObserver(element: HTMLElement) {
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        isIntersecting.value = entry.isIntersecting;
+        
+        // Load more messages when scrolling to top
+        if (entry.isIntersecting && hasMoreMessages.value && !isLoading.value) {
+          loadMoreMessages();
+        }
+      },
+      {
+        root: null,
+        rootMargin: '100px',
+        threshold: 0.1
+      }
+    );
+
+    observer.observe(element);
+    
+    return () => observer.disconnect();
+  }
+
+  // Auto-mark as read when channel becomes active
+  watch(
+    () => channelsStore.activeChannelId,
+    (newChannelId) => {
+      if (newChannelId && newChannelId === currentChannelId.value) {
+        markAsRead();
+      }
     }
   );
 
-  // Load initial messages when channel changes
+  // Auto-scroll to bottom for new messages (if user is at bottom)
   watch(
-    currentChannelId,
-    async (newChannelId) => {
-      if (newChannelId) {
-        await loadMessages(newChannelId, true);
+    () => messages.value.length,
+    async (newLength, oldLength) => {
+      if (newLength > oldLength && shouldAutoScroll()) {
         await nextTick();
         scrollToBottom();
+      }
+    }
+  );
+
+  // Initialize messages when channelId changes
+  watch(
+    () => currentChannelId.value,
+    (newChannelId) => {
+      if (newChannelId && !hasInitialized.value) {
+        loadMessages(newChannelId);
+        hasInitialized.value = true;
       }
     },
     { immediate: true }
   );
 
-  // Watch typing state
-  watch(debouncedTyping, (typing) => {
-    if (!typing) {
-      isTyping.value = false;
-    }
-  });
-
-  // Load messages for a channel
-  async function loadMessages(channelId: string, reset: boolean = false) {
-    if (reset) {
-      messagesStore.clearMessages(channelId);
-    }
-
-    const messages = await messagesAPI.getMessages(channelId, {
-      limit: 50,
-      before: reset ? undefined : messagesStore.getOldestMessageId(channelId),
-    });
-
-    if (messages?.data) {
-      messagesStore.addMessages(channelId, messages.data, !reset);
-
-      // Update channel last read
-      if (messages.data.length > 0) {
-        const latestMessage = messages.data[messages.data.length - 1];
-        channelsStore.updateLastRead(channelId, latestMessage.id);
-      }
-    }
+  // Utility functions
+  function getMessageById(messageId: number) {
+    return messages.value.find(m => m.id === messageId) || null
   }
 
-  // Load more messages (for pagination)
-  async function loadMoreMessages() {
-    if (
-      !currentChannelId.value ||
-      !hasMoreMessages.value ||
-      isLoadingMessages.value
-    ) {
-      return;
-    }
-
-    await loadMessages(currentChannelId.value, false);
+  function getMessagesByAuthor(authorId: number) {
+    return messages.value.filter(m => m.author.id === authorId)
   }
 
-  // Send a message
-  async function sendMessage(content?: string) {
-    const channelId = currentChannelId.value;
-    const messageText = content || messageInput.value.trim();
-
-    if (!channelId || !messageText) return;
-
-    const messageData: SendMessageRequest = {
-      content: messageText,
-      type: "text",
-    };
-
-    // Optimistically add message to store
-    const optimisticMessage: Message = {
-      id: `temp-${Date.now()}`,
-      content: messageText,
-      type: "text",
-      author: {
-        id: "current-user", // Will be replaced with actual user data
-        name: "You",
-        avatar_url: "",
-      },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      is_read: true,
-      media_files: [],
-    };
-
-    messagesStore.addMessage(channelId, optimisticMessage);
-    messageInput.value = "";
-
-    // Scroll to bottom
-    await nextTick();
-    scrollToBottom();
-
-    try {
-      const result = await messagesAPI.sendMessage(channelId, messageData);
-
-      if (result) {
-        // Replace optimistic message with real one
-        messagesStore.replaceMessage(channelId, optimisticMessage.id, result);
-
-        // Update channel last message
-        channelsStore.updateLastMessage(channelId, result);
-      } else {
-        // Remove optimistic message on failure
-        messagesStore.removeMessage(channelId, optimisticMessage.id);
-      }
-    } catch (error) {
-      // Remove optimistic message on error
-      messagesStore.removeMessage(channelId, optimisticMessage.id);
-      console.error("Failed to send message:", error);
-    }
+  function getLatestMessages(count = 10) {
+    return messages.value.slice(-count)
   }
 
-  // Send media message
-  async function sendMediaMessage(file: File) {
-    const channelId = currentChannelId.value;
-    if (!channelId) return;
+  // Refresh messages
+  async function refresh() {
+    if (!currentChannelId.value) return false;
 
-    // Upload media first
-    const { uploadMedia } = useAPI().useMedia();
-    const mediaResult = await uploadMedia(file);
-
-    if (!mediaResult) {
-      throw new Error("Failed to upload media");
-    }
-
-    const messageData: SendMessageRequest = {
-      content: "",
-      type: "media",
-      media_files: [mediaResult],
-    };
-
-    await messagesAPI.sendMessage(channelId, messageData);
-    await loadMessages(channelId, true);
+    messagesStore.clearMessages();
+    return loadMessages(currentChannelId.value);
   }
 
-  // Mark messages as read
-  async function markAsRead(messageId?: string) {
-    const channelId = currentChannelId.value;
-    if (!channelId) return;
-
-    const targetMessageId =
-      messageId || messagesStore.getLatestMessageId(channelId);
-    if (!targetMessageId) return;
-
-    await messagesAPI.markAsRead(channelId, targetMessageId);
-    messagesStore.markAsRead(channelId, targetMessageId);
-    channelsStore.updateLastRead(channelId, targetMessageId);
-  }
-
-  // Scroll to bottom of message list
-  function scrollToBottom(smooth: boolean = true) {
-    if (messageListContainer.value) {
-      messageListContainer.value.scrollTo({
-        top: messageListContainer.value.scrollHeight,
-        behavior: smooth ? "smooth" : "auto",
-      });
-    }
-  }
-
-  // Handle typing indicator
-  function handleTyping() {
-    isTyping.value = true;
-    // TODO: Send typing event to other users via WebSocket or polling
-  }
-
-  // Get unread count for channel
-  function getUnreadCount(channelId: string): number {
-    return messagesStore.getUnreadCount(channelId);
-  }
-
-  // Search messages in current channel
-  function searchMessages(query: string): Message[] {
-    if (!currentChannelId.value) return [];
-    return messagesStore.searchMessages(currentChannelId.value, query);
-  }
-
-  // Get message by ID
-  function getMessageById(messageId: string): Message | undefined {
-    if (!currentChannelId.value) return undefined;
-    return messagesStore.getMessage(currentChannelId.value, messageId);
-  }
-
-  // Retry failed message
-  async function retryMessage(messageId: string) {
-    if (!currentChannelId.value) return;
-
-    const message = getMessageById(messageId);
-    if (!message) return;
-
-    // Remove failed message and resend
-    messagesStore.removeMessage(currentChannelId.value, messageId);
-    await sendMessage(message.content);
-  }
-
-  // Clear all messages for current channel
-  function clearMessages() {
-    if (currentChannelId.value) {
-      messagesStore.clearMessages(currentChannelId.value);
-    }
+  // Initialize if channelId is provided
+  if (channelId) {
+    setChannelId(channelId);
   }
 
   return {
     // State
-    messageInput,
-    isTyping,
-    typingUsers,
     messages,
+    isLoading,
     hasMoreMessages,
-    isLoadingMessages,
-    isSendingMessage,
-    currentChannelId,
-
-    // Refs for templates
-    loadMoreTrigger,
-    messageListContainer,
+    error,
+    draftText,
+    isUploading,
+    typingUsers,
+    currentChannelId: computed(() => currentChannelId.value),
+    isIntersecting: computed(() => isIntersecting.value),
 
     // Actions
+    setChannelId,
     loadMessages,
     loadMoreMessages,
     sendMessage,
-    sendMediaMessage,
     markAsRead,
+    refresh,
+
+    // Draft management
+    setDraftText,
+    clearDraft,
+
+    // Error handling
+    clearError,
+
+    // Typing indicators
+    addTypingUser,
+    removeTypingUser,
+
+    // Scroll management
+    setScrollPosition,
     scrollToBottom,
-    handleTyping,
-    retryMessage,
-    clearMessages,
+    shouldAutoScroll,
+    setupIntersectionObserver,
 
-    // Getters
-    getUnreadCount,
-    searchMessages,
+    // Utilities
     getMessageById,
-
-    // Store access
-    messagesStore,
+    getMessagesByAuthor,
+    getLatestMessages
   };
 }

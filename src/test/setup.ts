@@ -60,7 +60,7 @@ class MockBroadcastChannel {
     this.name = name;
   }
 
-  postMessage(data: any) {
+  postMessage(_data: any) {
     // Mock implementation
   }
 

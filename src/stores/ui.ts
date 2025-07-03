@@ -1,319 +1,335 @@
-import { defineStore } from "pinia";
-import { ref, computed, watch } from "vue";
-import { useColorMode } from "@vueuse/core";
+import { defineStore } from 'pinia'
+import { ref, computed, readonly } from 'vue'
 
-export const useUIStore = defineStore("ui", () => {
-  // State
-  const isChatSidebarVisible = ref(false);
-  const isChannelsListVisible = ref(false);
-  const sidebarWidth = ref(400); // Default sidebar width
-  const chatPosition = ref<"left" | "right">("right");
-  const isCompactMode = ref(false);
-  const showNotifications = ref(true);
-  const soundEnabled = ref(false);
+export const useUIStore = defineStore('ui', () => {
+  // Main UI state
+  const isChannelsListOpen = ref(false)
+  const isChatSidebarOpen = ref(false)
+  const isEmojiPickerOpen = ref(false)
+  const isMediaUploadOpen = ref(false)
+  const isSettingsOpen = ref(false)
 
-  // Theme management using VueUse
-  const colorMode = useColorMode({
-    modes: {
-      light: "light",
-      dark: "dark",
-      auto: "auto",
-    },
-  });
-
-  // Loading states
-  const isGlobalLoading = ref(false);
-  const loadingMessage = ref("");
-
-  // Error states
-  const globalError = ref<string | null>(null);
-  const errorTimeout = ref<NodeJS.Timeout | null>(null);
+  // Theme management
+  const theme = ref<'light' | 'dark' | 'auto'>('auto')
+  const systemTheme = ref<'light' | 'dark'>('light')
 
   // Notification state
-  const notifications = ref<Notification[]>([]);
+  const notifications = ref<Array<{
+    id: string
+    type: 'success' | 'error' | 'warning' | 'info'
+    title: string
+    message: string
+    duration?: number
+    timestamp: number
+  }>>([])
 
-  // Interface for notifications
-  interface Notification {
-    id: string;
-    type: "success" | "error" | "warning" | "info";
-    title: string;
-    message: string;
-    duration?: number;
-    persistent?: boolean;
-  }
+  // Loading states
+  const isGlobalLoading = ref(false)
+  const loadingMessage = ref<string | null>(null)
 
-  // Getters
+  // Window/viewport state
+  const windowWidth = ref(window.innerWidth)
+  const windowHeight = ref(window.innerHeight)
+  const isMobile = ref(window.innerWidth < 768)
+
+  // Error state
+  const globalError = ref<string | null>(null)
+
+  // Computed
+  const currentTheme = computed(() => {
+    if (theme.value === 'auto') {
+      return systemTheme.value
+    }
+    return theme.value
+  })
+
   const isDarkMode = computed(() => {
-    return (
-      colorMode.value === "dark" ||
-      (colorMode.value === "auto" &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches)
-    );
-  });
+    return currentTheme.value === 'dark'
+  })
 
-  const sidebarClasses = computed(() => {
-    return {
-      "right-0": chatPosition.value === "right",
-      "left-0": chatPosition.value === "left",
-      "w-80": !isCompactMode.value,
-      "w-64": isCompactMode.value,
-    };
-  });
+  const isSidebarMode = computed(() => {
+    return windowWidth.value >= 1024 // lg breakpoint
+  })
 
-  const hasActiveNotifications = computed(() => notifications.value.length > 0);
+  const canShowChannelsList = computed(() => {
+    return !isMobile.value || !isChatSidebarOpen.value
+  })
+
+  const canShowChatSidebar = computed(() => {
+    return !isMobile.value || !isChannelsListOpen.value
+  })
 
   // Actions
-  const toggleChatSidebar = (): void => {
-    isChatSidebarVisible.value = !isChatSidebarVisible.value;
-
-    // Close channels list when opening chat sidebar
-    if (isChatSidebarVisible.value) {
-      isChannelsListVisible.value = false;
+  function setChannelsListOpen(open: boolean) {
+    isChannelsListOpen.value = open
+    
+    // On mobile, close chat sidebar when opening channels list
+    if (isMobile.value && open) {
+      isChatSidebarOpen.value = false
     }
-  };
+  }
 
-  const setChatSidebarVisible = (visible: boolean): void => {
-    isChatSidebarVisible.value = visible;
-  };
-
-  const toggleChannelsList = (): void => {
-    isChannelsListVisible.value = !isChannelsListVisible.value;
-  };
-
-  const setChannelsListVisible = (visible: boolean): void => {
-    isChannelsListVisible.value = visible;
-  };
-
-  const setSidebarWidth = (width: number): void => {
-    const minWidth = 300;
-    const maxWidth = 600;
-    sidebarWidth.value = Math.max(minWidth, Math.min(maxWidth, width));
-  };
-
-  const setChatPosition = (position: "left" | "right"): void => {
-    chatPosition.value = position;
-  };
-
-  const toggleCompactMode = (): void => {
-    isCompactMode.value = !isCompactMode.value;
-  };
-
-  const setTheme = (theme: "light" | "dark" | "auto"): void => {
-    colorMode.value = theme;
-  };
-
-  const setGlobalLoading = (loading: boolean, message = ""): void => {
-    isGlobalLoading.value = loading;
-    loadingMessage.value = message;
-  };
-
-  const setGlobalError = (error: string | null, duration = 5000): void => {
-    globalError.value = error;
-
-    // Clear existing timeout
-    if (errorTimeout.value) {
-      clearTimeout(errorTimeout.value);
+  function setChatSidebarOpen(open: boolean) {
+    isChatSidebarOpen.value = open
+    
+    // On mobile, close channels list when opening chat sidebar
+    if (isMobile.value && open) {
+      isChannelsListOpen.value = false
     }
+  }
 
-    // Auto-clear error after duration
-    if (error && duration > 0) {
-      errorTimeout.value = setTimeout(() => {
-        globalError.value = null;
-      }, duration);
+  function toggleChannelsList() {
+    setChannelsListOpen(!isChannelsListOpen.value)
+  }
+
+  function toggleChatSidebar() {
+    setChatSidebarOpen(!isChatSidebarOpen.value)
+  }
+
+  function setEmojiPickerOpen(open: boolean) {
+    isEmojiPickerOpen.value = open
+  }
+
+  function setMediaUploadOpen(open: boolean) {
+    isMediaUploadOpen.value = open
+  }
+
+  function setSettingsOpen(open: boolean) {
+    isSettingsOpen.value = open
+  }
+
+  function closeAllModals() {
+    isEmojiPickerOpen.value = false
+    isMediaUploadOpen.value = false
+    isSettingsOpen.value = false
+  }
+
+  // Theme management
+  function setTheme(newTheme: 'light' | 'dark' | 'auto') {
+    theme.value = newTheme
+    applyTheme()
+    persistTheme()
+  }
+
+  function setSystemTheme(newSystemTheme: 'light' | 'dark') {
+    systemTheme.value = newSystemTheme
+    applyTheme()
+  }
+
+  function applyTheme() {
+    const effectiveTheme = currentTheme.value
+    
+    if (effectiveTheme === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
     }
-  };
-
-  const addNotification = (notification: Omit<Notification, "id">): string => {
-    const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-    const newNotification: Notification = {
-      id,
-      duration: 5000,
-      persistent: false,
-      ...notification,
-    };
-
-    notifications.value.push(newNotification);
-
-    // Auto-remove notification if not persistent
-    if (!newNotification.persistent && newNotification.duration) {
-      setTimeout(() => {
-        removeNotification(id);
-      }, newNotification.duration);
+    
+    // Update meta theme-color for mobile browsers
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute('content', effectiveTheme === 'dark' ? '#202124' : '#ffffff')
     }
+  }
 
-    return id;
-  };
-
-  const removeNotification = (id: string): void => {
-    const index = notifications.value.findIndex((n) => n.id === id);
-    if (index >= 0) {
-      notifications.value.splice(index, 1);
-    }
-  };
-
-  const clearAllNotifications = (): void => {
-    notifications.value = [];
-  };
-
-  const showSuccessNotification = (title: string, message: string): string => {
-    return addNotification({ type: "success", title, message });
-  };
-
-  const showErrorNotification = (
-    title: string,
-    message: string,
-    persistent = false
-  ): string => {
-    return addNotification({
-      type: "error",
-      title,
-      message,
-      persistent,
-      duration: persistent ? 0 : 7000,
-    });
-  };
-
-  const showWarningNotification = (title: string, message: string): string => {
-    return addNotification({ type: "warning", title, message });
-  };
-
-  const showInfoNotification = (title: string, message: string): string => {
-    return addNotification({ type: "info", title, message });
-  };
-
-  const toggleNotifications = (): void => {
-    showNotifications.value = !showNotifications.value;
-  };
-
-  const toggleSound = (): void => {
-    soundEnabled.value = !soundEnabled.value;
-  };
-
-  // Close overlays when clicking outside
-  const closeAllOverlays = (): void => {
-    isChannelsListVisible.value = false;
-    // Don't auto-close chat sidebar as it's the main interface
-  };
-
-  // Keyboard shortcuts
-  const handleKeyboardShortcut = (event: KeyboardEvent): void => {
-    // Ctrl/Cmd + M: Toggle chat sidebar
-    if ((event.ctrlKey || event.metaKey) && event.key === "m") {
-      event.preventDefault();
-      toggleChatSidebar();
-    }
-
-    // Ctrl/Cmd + Shift + C: Toggle channels list
-    if (
-      (event.ctrlKey || event.metaKey) &&
-      event.shiftKey &&
-      event.key === "C"
-    ) {
-      event.preventDefault();
-      toggleChannelsList();
-    }
-
-    // Escape: Close overlays
-    if (event.key === "Escape") {
-      closeAllOverlays();
-    }
-  };
-
-  // Save UI preferences to storage
-  const savePreferences = async (): Promise<void> => {
-    const preferences = {
-      chatPosition: chatPosition.value,
-      sidebarWidth: sidebarWidth.value,
-      isCompactMode: isCompactMode.value,
-      showNotifications: showNotifications.value,
-      soundEnabled: soundEnabled.value,
-      theme: colorMode.value,
-    };
-
+  function persistTheme() {
     try {
-      await chrome.storage.sync.set({ uiPreferences: preferences });
+      localStorage.setItem('dtf-messenger-theme', theme.value)
     } catch (error) {
-      console.error("Failed to save UI preferences:", error);
+      console.warn('DTF Messenger: Failed to persist theme preference:', error)
     }
-  };
+  }
 
-  // Load UI preferences from storage
-  const loadPreferences = async (): Promise<void> => {
+  function loadTheme() {
     try {
-      const result = await chrome.storage.sync.get("uiPreferences");
-      const preferences = result.uiPreferences;
-
-      if (preferences) {
-        chatPosition.value = preferences.chatPosition || "right";
-        sidebarWidth.value = preferences.sidebarWidth || 400;
-        isCompactMode.value = preferences.isCompactMode || false;
-        showNotifications.value = preferences.showNotifications !== false;
-        soundEnabled.value = preferences.soundEnabled || false;
-        colorMode.value = preferences.theme || "auto";
+      const stored = localStorage.getItem('dtf-messenger-theme')
+      if (stored && ['light', 'dark', 'auto'].includes(stored)) {
+        theme.value = stored as 'light' | 'dark' | 'auto'
       }
     } catch (error) {
-      console.error("Failed to load UI preferences:", error);
+      console.warn('DTF Messenger: Failed to load theme preference:', error)
     }
-  };
+  }
 
-  // Watch for changes and save preferences
-  watch(
-    [
-      chatPosition,
-      sidebarWidth,
-      isCompactMode,
-      showNotifications,
-      soundEnabled,
-      colorMode,
-    ],
-    () => {
-      savePreferences();
+  // Notification management
+  function addNotification(notification: {
+    type: 'success' | 'error' | 'warning' | 'info'
+    title: string
+    message: string
+    duration?: number
+  }) {
+    const id = `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const duration = notification.duration || 5000
+
+    const newNotification = {
+      id,
+      ...notification,
+      timestamp: Date.now()
     }
-  );
 
+    notifications.value.push(newNotification)
+
+    // Auto-remove after duration
+    if (duration > 0) {
+      setTimeout(() => {
+        removeNotification(id)
+      }, duration)
+    }
+
+    return id
+  }
+
+  function removeNotification(id: string) {
+    const index = notifications.value.findIndex(n => n.id === id)
+    if (index >= 0) {
+      notifications.value.splice(index, 1)
+    }
+  }
+
+  function clearNotifications() {
+    notifications.value = []
+  }
+
+  // Loading state
+  function setGlobalLoading(loading: boolean, message?: string) {
+    isGlobalLoading.value = loading
+    loadingMessage.value = message || null
+  }
+
+  // Error handling
+  function setGlobalError(error: string | null) {
+    globalError.value = error
+    
+    if (error) {
+      addNotification({
+        type: 'error',
+        title: 'Ошибка',
+        message: error,
+        duration: 8000
+      })
+    }
+  }
+
+  // Window size management
+  function updateWindowSize() {
+    windowWidth.value = window.innerWidth
+    windowHeight.value = window.innerHeight
+    isMobile.value = window.innerWidth < 768
+  }
+
+  function setupWindowListeners() {
+    window.addEventListener('resize', updateWindowSize)
+    
+    // System theme detection
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    setSystemTheme(mediaQuery.matches ? 'dark' : 'light')
+    
+    mediaQuery.addEventListener('change', (e) => {
+      setSystemTheme(e.matches ? 'dark' : 'light')
+    })
+  }
+
+  function removeWindowListeners() {
+    window.removeEventListener('resize', updateWindowSize)
+  }
+
+  // Keyboard shortcuts
+  function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+      // Escape key - close modals
+      if (e.key === 'Escape') {
+        closeAllModals()
+      }
+      
+      // Ctrl/Cmd + K - toggle channels list
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        toggleChannelsList()
+      }
+      
+      // Ctrl/Cmd + Shift + T - toggle theme
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+        e.preventDefault()
+        const newTheme = currentTheme.value === 'dark' ? 'light' : 'dark'
+        setTheme(newTheme)
+      }
+    })
+  }
+
+  // Initialization
+  function initialize() {
+    loadTheme()
+    applyTheme()
+    setupWindowListeners()
+    setupKeyboardShortcuts()
+    updateWindowSize()
+  }
+
+  function destroy() {
+    removeWindowListeners()
+    clearNotifications()
+  }
+
+  // Public API
   return {
-    // State
-    isChatSidebarVisible,
-    isChannelsListVisible,
-    sidebarWidth,
-    chatPosition,
-    isCompactMode,
-    showNotifications,
-    soundEnabled,
-    colorMode,
-    isGlobalLoading,
-    loadingMessage,
-    globalError,
-    notifications,
-
-    // Getters
+    // UI State
+    isChannelsListOpen: readonly(isChannelsListOpen),
+    isChatSidebarOpen: readonly(isChatSidebarOpen),
+    isEmojiPickerOpen: readonly(isEmojiPickerOpen),
+    isMediaUploadOpen: readonly(isMediaUploadOpen),
+    isSettingsOpen: readonly(isSettingsOpen),
+    
+    // Theme
+    theme: readonly(theme),
+    systemTheme: readonly(systemTheme),
+    currentTheme,
     isDarkMode,
-    sidebarClasses,
-    hasActiveNotifications,
-
+    
+    // Layout
+    windowWidth: readonly(windowWidth),
+    windowHeight: readonly(windowHeight),
+    isMobile: readonly(isMobile),
+    isSidebarMode,
+    canShowChannelsList,
+    canShowChatSidebar,
+    
+    // Notifications
+    notifications: readonly(notifications),
+    
+    // Loading & Errors
+    isGlobalLoading: readonly(isGlobalLoading),
+    loadingMessage: readonly(loadingMessage),
+    globalError: readonly(globalError),
+    
     // Actions
-    toggleChatSidebar,
-    setChatSidebarVisible,
+    setChannelsListOpen,
+    setChatSidebarOpen,
     toggleChannelsList,
-    setChannelsListVisible,
-    setSidebarWidth,
-    setChatPosition,
-    toggleCompactMode,
+    toggleChatSidebar,
+    setEmojiPickerOpen,
+    setMediaUploadOpen,
+    setSettingsOpen,
+    closeAllModals,
+    
+    // Theme Actions
     setTheme,
-    setGlobalLoading,
-    setGlobalError,
+    setSystemTheme,
+    applyTheme,
+    
+    // Notification Actions
     addNotification,
     removeNotification,
-    clearAllNotifications,
-    showSuccessNotification,
-    showErrorNotification,
-    showWarningNotification,
-    showInfoNotification,
-    toggleNotifications,
-    toggleSound,
-    closeAllOverlays,
-    handleKeyboardShortcut,
-    savePreferences,
-    loadPreferences,
-  };
-});
+    clearNotifications,
+    
+    // Loading Actions
+    setGlobalLoading,
+    
+    // Error Actions
+    setGlobalError,
+    
+    // Utilities
+    updateWindowSize,
+    initialize,
+    destroy
+  }
+}) 

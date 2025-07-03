@@ -37,7 +37,7 @@ async function setupInitialSettings() {
 }
 
 // Handle messages from content scripts
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (message.type) {
     case "SHOW_NOTIFICATION":
       handleNotification(message.data);

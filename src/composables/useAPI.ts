@@ -1,266 +1,254 @@
-import { ref, computed, unref } from "vue";
-import type { MaybeRef } from "@vueuse/core";
-import { DTFMessengerAPI } from "@/utils/api";
-import { useAuthStore } from "@/stores/auth";
-import type {
-  APIResponse,
-  Channel,
-  Message,
-  SendMessageRequest,
-  GetMessagesParams,
-  CreateChannelRequest,
-} from "@/types/api";
+import { ref, computed, onMounted } from 'vue'
+import { dtfAPI } from '@/utils/api'
+import { useAuthStore } from '@/stores/auth'
+import { useUIStore } from '@/stores/ui'
+import type { APIResponse } from '@/types/api'
 
 /**
- * API composable for DTF Messenger
- * Provides reactive API calls with error handling and loading states
+ * API composable with error handling and retry logic
  */
 export function useAPI() {
-  const authStore = useAuthStore();
-  const api = new DTFMessengerAPI();
+  const authStore = useAuthStore()
+  const uiStore = useUIStore()
 
-  // Global loading state
-  const isLoading = ref(false);
-  const error = ref<string | null>(null);
+  // Local state for request tracking
+  const activeRequests = ref(new Set<string>())
+  const requestErrors = ref<Record<string, string>>({})
 
-  // Get authorization header
-  const authHeader = computed(() => {
-    return authStore.token ? `Bearer ${authStore.token.access_token}` : "";
-  });
+  // Computed
+  const isLoading = computed(() => activeRequests.value.size > 0)
+  const hasErrors = computed(() => Object.keys(requestErrors.value).length > 0)
 
-  // Generic API call wrapper
-  async function apiCall<T>(
-    apiMethod: () => Promise<APIResponse<T>>,
+  // Helper to track requests
+  function trackRequest(key: string) {
+    activeRequests.value.add(key)
+  }
+
+  function untrackRequest(key: string) {
+    activeRequests.value.delete(key)
+    delete requestErrors.value[key]
+  }
+
+  function setRequestError(key: string, error: string) {
+    requestErrors.value[key] = error
+  }
+
+  // Generic API call wrapper with error handling and retry
+  async function makeAPICall<T>(
+    requestKey: string,
+    apiCall: () => Promise<APIResponse<T>>,
     options: {
-      loadingRef?: MaybeRef<boolean>;
-      errorRef?: MaybeRef<string | null>;
-      onSuccess?: (data: T) => void;
-      onError?: (error: string) => void;
+      retries?: number
+      showErrorNotification?: boolean
+      showLoadingIndicator?: boolean
     } = {}
   ): Promise<T | null> {
-    const {
-      loadingRef = isLoading,
-      errorRef = error,
-      onSuccess,
-      onError,
-    } = options;
+    const { 
+      retries = 2, 
+      showErrorNotification = true,
+      showLoadingIndicator = false
+    } = options
 
-    try {
-      // Set loading state
-      if (typeof loadingRef === "object" && "value" in loadingRef) {
-        loadingRef.value = true;
-      }
-
-      // Clear previous error
-      if (typeof errorRef === "object" && "value" in errorRef) {
-        errorRef.value = null;
-      }
-
-      const response = await apiMethod();
-
-      if (response.success && response.data) {
-        onSuccess?.(response.data);
-        return response.data;
-      } else {
-        const errorMessage = response.error || "API call failed";
-        if (typeof errorRef === "object" && "value" in errorRef) {
-          errorRef.value = errorMessage;
-        }
-        onError?.(errorMessage);
-        return null;
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Network error";
-      if (typeof errorRef === "object" && "value" in errorRef) {
-        errorRef.value = errorMessage;
-      }
-      onError?.(errorMessage);
-      return null;
-    } finally {
-      // Clear loading state
-      if (typeof loadingRef === "object" && "value" in loadingRef) {
-        loadingRef.value = false;
-      }
+    trackRequest(requestKey)
+    
+    if (showLoadingIndicator) {
+      uiStore.setGlobalLoading(true, `Выполняется ${requestKey}...`)
     }
-  }
 
-  // Channels API
-  function useChannels() {
-    const channelsLoading = ref(false);
-    const channelsError = ref<string | null>(null);
+    let lastError: string = ''
 
-    const getChannels = () =>
-      apiCall(() => api.getChannels(), {
-        loadingRef: channelsLoading,
-        errorRef: channelsError,
-      });
-
-    const createChannel = (data: CreateChannelRequest) =>
-      apiCall(() => api.createChannel(data), {
-        loadingRef: channelsLoading,
-        errorRef: channelsError,
-      });
-
-    const getChannel = (channelId: string) =>
-      apiCall(() => api.getChannel(channelId), {
-        loadingRef: channelsLoading,
-        errorRef: channelsError,
-      });
-
-    return {
-      channelsLoading,
-      channelsError,
-      getChannels,
-      createChannel,
-      getChannel,
-    };
-  }
-
-  // Messages API
-  function useMessages() {
-    const messagesLoading = ref(false);
-    const messagesError = ref<string | null>(null);
-
-    const getMessages = (channelId: string, params?: GetMessagesParams) =>
-      apiCall(() => api.getMessages(channelId, params), {
-        loadingRef: messagesLoading,
-        errorRef: messagesError,
-      });
-
-    const sendMessage = (channelId: string, data: SendMessageRequest) =>
-      apiCall(() => api.sendMessage(channelId, data), {
-        loadingRef: messagesLoading,
-        errorRef: messagesError,
-      });
-
-    const getMessage = (channelId: string, messageId: string) =>
-      apiCall(() => api.getMessage(channelId, messageId), {
-        loadingRef: messagesLoading,
-        errorRef: messagesError,
-      });
-
-    const markAsRead = (channelId: string, messageId: string) =>
-      apiCall(() => api.markAsRead(channelId, messageId), {
-        loadingRef: messagesLoading,
-        errorRef: messagesError,
-      });
-
-    return {
-      messagesLoading,
-      messagesError,
-      getMessages,
-      sendMessage,
-      getMessage,
-      markAsRead,
-    };
-  }
-
-  // Media API
-  function useMedia() {
-    const mediaLoading = ref(false);
-    const mediaError = ref<string | null>(null);
-
-    const uploadMedia = (file: File) =>
-      apiCall(() => api.uploadMedia(file), {
-        loadingRef: mediaLoading,
-        errorRef: mediaError,
-      });
-
-    return {
-      mediaLoading,
-      mediaError,
-      uploadMedia,
-    };
-  }
-
-  // User API
-  function useUsers() {
-    const usersLoading = ref(false);
-    const usersError = ref<string | null>(null);
-
-    const getUserProfile = (userId?: string) =>
-      apiCall(() => api.getUserProfile(userId), {
-        loadingRef: usersLoading,
-        errorRef: usersError,
-      });
-
-    const searchUsers = (query: string) =>
-      apiCall(() => api.searchUsers(query), {
-        loadingRef: usersLoading,
-        errorRef: usersError,
-      });
-
-    return {
-      usersLoading,
-      usersError,
-      getUserProfile,
-      searchUsers,
-    };
-  }
-
-  // Utility functions
-  function clearError() {
-    error.value = null;
-  }
-
-  function clearAllErrors() {
-    error.value = null;
-    // Clear specific API errors if needed
-  }
-
-  // Helper to check if request should be retried
-  function shouldRetry(statusCode?: number): boolean {
-    return statusCode === 429 || (statusCode && statusCode >= 500);
-  }
-
-  // Retry wrapper
-  async function withRetry<T>(
-    apiMethod: () => Promise<T>,
-    maxRetries: number = 3,
-    delay: number = 1000
-  ): Promise<T> {
-    let lastError: Error;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        return await apiMethod();
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error("Unknown error");
-
-        if (attempt === maxRetries) {
-          throw lastError;
+        const response = await apiCall()
+        
+        if (response.success && response.result) {
+          untrackRequest(requestKey)
+          
+          if (showLoadingIndicator) {
+            uiStore.setGlobalLoading(false)
+          }
+          
+          return response.result
+        } else {
+          lastError = response.error?.message || 'Неизвестная ошибка'
+          
+          // Check if it's an auth error
+          if (response.error && (response.error.code === 401 || response.error.code === 403)) {
+            console.warn('DTF Messenger: Authentication error, clearing session')
+            authStore.clearAuth()
+            break // Don't retry auth errors
+          }
+          
+          // Retry on network errors
+          if (attempt < retries && response.error && (response.error.code === 0 || response.error.code >= 500)) {
+            const delay = Math.pow(2, attempt) * 1000 // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, delay))
+            continue
+          }
+          
+          break
         }
-
-        // Wait before retry with exponential backoff
-        await new Promise((resolve) =>
-          setTimeout(resolve, delay * Math.pow(2, attempt - 1))
-        );
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : 'Ошибка сети'
+        
+        // Retry on network errors
+        if (attempt < retries) {
+          const delay = Math.pow(2, attempt) * 1000
+          await new Promise(resolve => setTimeout(resolve, delay))
+          continue
+        }
+        
+        break
       }
     }
 
-    throw lastError!;
+    // Handle final error
+    setRequestError(requestKey, lastError)
+    
+    if (showErrorNotification) {
+      uiStore.addNotification({
+        type: 'error',
+        title: 'Ошибка запроса',
+        message: lastError,
+        duration: 5000
+      })
+    }
+
+    if (showLoadingIndicator) {
+      uiStore.setGlobalLoading(false)
+    }
+
+    untrackRequest(requestKey)
+    return null
   }
+
+  // Channel API methods
+  const channelsAPI = {
+    getChannels: () => makeAPICall(
+      'channels-list',
+      () => dtfAPI.getChannels(),
+      { showErrorNotification: true }
+    ),
+
+    getChannel: (id: number) => makeAPICall(
+      `channel-${id}`,
+      () => dtfAPI.getChannel(id),
+      { showErrorNotification: true }
+    ),
+
+    createChannelWithUser: (userId: number) => makeAPICall(
+      `create-channel-${userId}`,
+      () => dtfAPI.getOrCreateChannelWithUser(userId),
+      { showErrorNotification: true, showLoadingIndicator: true }
+    )
+  }
+
+  // Messages API methods
+  const messagesAPI = {
+    getMessages: (channelId: number, beforeTime?: number, limit?: number) => makeAPICall(
+      `messages-${channelId}`,
+      () => dtfAPI.getMessages({ channelId, beforeTime, limit }),
+      { showErrorNotification: true }
+    ),
+
+    sendMessage: (channelId: number, text: string, _media: File[] = []) => makeAPICall(
+      `send-message-${channelId}`,
+      () => dtfAPI.sendMessage({ 
+        channelId, 
+        text, 
+        media: [],
+        ts: Math.floor(Date.now() / 1000),
+        idTmp: Date.now().toString()
+      }),
+      { showErrorNotification: true, retries: 1 }
+    ),
+
+    markAsRead: (channelId: number, messageIds: number[]) => makeAPICall(
+      `mark-read-${channelId}`,
+      () => dtfAPI.markAsRead(channelId, messageIds),
+      { showErrorNotification: false, retries: 1 }
+    )
+  }
+
+  // Media API methods
+  const mediaAPI = {
+    uploadFile: (file: File) => makeAPICall(
+      `upload-${file.name}`,
+      () => dtfAPI.uploadFile(file),
+      { showErrorNotification: true, showLoadingIndicator: true, retries: 1 }
+    )
+  }
+
+  // User API methods
+  const userAPI = {
+    searchUsers: (query: string, limit = 10) => makeAPICall(
+      `search-users-${query}`,
+      () => dtfAPI.searchUsers(query, limit),
+      { showErrorNotification: false }
+    ),
+
+    getUserProfile: () => makeAPICall(
+      'user-profile',
+      () => dtfAPI.getUserProfile(),
+      { showErrorNotification: true }
+    )
+  }
+
+  // Utility methods
+  function clearErrors() {
+    requestErrors.value = {}
+  }
+
+  function clearError(requestKey: string) {
+    delete requestErrors.value[requestKey]
+  }
+
+  function getError(requestKey: string): string | null {
+    return requestErrors.value[requestKey] || null
+  }
+
+  function isRequestLoading(requestKey: string): boolean {
+    return activeRequests.value.has(requestKey)
+  }
+
+  // Health check
+  async function healthCheck() {
+    return makeAPICall(
+      'health-check',
+      () => dtfAPI.healthCheck(),
+      { showErrorNotification: false, retries: 0 }
+    )
+  }
+
+  // Initialize API client with auth token
+  onMounted(() => {
+    const token = authStore.accessToken
+    if (token) {
+      dtfAPI.setAccessToken(token)
+    }
+  })
 
   return {
-    // Global state
+    // State
     isLoading,
-    error,
-    authHeader,
+    hasErrors,
+    requestErrors: computed(() => requestErrors.value),
 
     // API groups
-    useChannels,
-    useMessages,
-    useMedia,
-    useUsers,
+    channelsAPI,
+    messagesAPI,
+    mediaAPI,
+    userAPI,
 
     // Utilities
-    apiCall,
+    makeAPICall,
+    clearErrors,
     clearError,
-    clearAllErrors,
-    withRetry,
-    shouldRetry,
+    getError,
+    isRequestLoading,
+    healthCheck,
 
     // Direct API access
-    api,
-  };
+    api: dtfAPI
+  }
 }

@@ -1,19 +1,24 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { resolve } from "path";
-import webExtension from "vite-plugin-web-extension";
-
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    vue(),
-    webExtension({
-      manifest: "public/manifest.json",
-    }),
-  ],
+  plugins: [vue()], // crx({ manifest }),
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),
+      "@/components": resolve(__dirname, "src/components"),
+      "@/stores": resolve(__dirname, "src/stores"),
+      "@/composables": resolve(__dirname, "src/composables"),
+      "@/types": resolve(__dirname, "src/types"),
+      "@/utils": resolve(__dirname, "src/utils"),
+    },
+  },
+  server: {
+    port: 3000,
+    strictPort: true,
+    hmr: {
+      port: 3001,
     },
   },
   build: {
@@ -26,41 +31,17 @@ export default defineConfig({
         popup: resolve(__dirname, "src/popup/index.html"),
       },
       output: {
-        entryFileNames: (chunkInfo) => {
-          // Keep service worker as .js for Chrome Extension compatibility
-          if (chunkInfo.name === "background") {
-            return "background/service-worker.js";
-          }
-          if (chunkInfo.name === "content") {
-            return "content/main.js";
-          }
-          return "[name].js";
+        entryFileNames: (chunk) => {
+          return `${chunk.name}.js`;
         },
-        chunkFileNames: "[name].[hash].js",
-        assetFileNames: (assetInfo) => {
-          // Handle CSS files
-          if (assetInfo.name?.endsWith(".css")) {
-            if (assetInfo.name.includes("content")) {
-              return "content/styles.css";
-            }
-            return "assets/[name].[ext]";
-          }
-          // Handle other assets
-          return "assets/[name].[ext]";
-        },
+        chunkFileNames: "chunks/[name].[hash].js",
+        assetFileNames: "assets/[name].[hash].[ext]",
       },
     },
-    // Target ES2020 for Chrome Extension compatibility
-    target: "es2020",
-    // Disable minification in development
-    minify: process.env.NODE_ENV === "production",
+    sourcemap: process.env.NODE_ENV === "development",
   },
   define: {
     __VUE_OPTIONS_API__: false,
     __VUE_PROD_DEVTOOLS__: false,
-  },
-  // Ensure proper handling of Chrome extension APIs
-  esbuild: {
-    target: "es2020",
   },
 });
