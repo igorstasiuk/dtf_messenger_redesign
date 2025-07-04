@@ -18,7 +18,7 @@
     "watch": "vite build --mode development --watch",
     "icons:create": "node scripts/create-icons.js",
     "setup": "npm install && npm run icons:create",
-    "changelog": "node scripts/generate-changelog.js",
+    "changelog": "node scripts/generate-changelog.cjs",
     "release": "npm run build && npm run changelog && npm run build:zip && git add CHANGELOG.md && git commit -m 'chore(release): update changelog' && npm run tag-release && git push --follow-tags",
     "tag-release": "node -e \"const v=require('./package.json').version;require('child_process').execSync('git tag v'+v)\""
   },
