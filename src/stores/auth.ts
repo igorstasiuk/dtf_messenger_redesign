@@ -44,6 +44,11 @@ export const useAuthStore = defineStore("auth", () => {
   function setAccessToken(token: string | null) {
     accessToken.value = token;
 
+    // Always set token in API client
+    import("@/utils/api").then(({ dtfAPI }) => {
+      dtfAPI.setAccessToken(token || "");
+    });
+
     if (token) {
       // Calculate expiry time (DTF tokens typically last 30 minutes)
       sessionExpiry.value = Date.now() + 30 * 60 * 1000;

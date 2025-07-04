@@ -77,81 +77,78 @@
             <div
               v-for="message in messages"
               :key="message.id"
-              class="chat-sidebar__message"
-              :class="{
-                // @ts-expect-error: Pinia returns deeply readonly, but isOwnMessage expects mutable
-                'chat-sidebar__message--own': isOwnMessage(message),
-              }"
+              class="channel__popover__messages__message"
             >
-              <div class="chat-sidebar__message-avatar">
-                <img
-                  v-if="message.author.avatar_url"
-                  :src="message.author.avatar_url"
-                  :alt="message.author.name || 'User'"
-                  class="w-8 h-8 rounded-full object-cover"
-                />
+              <div class="channel__popover__messages__message__image">
                 <div
-                  v-else
-                  class="w-8 h-8 rounded-full bg-gray-400 text-white flex items-center justify-center text-sm"
+                  v-if="!message.sameAuthor"
+                  class="andropov-media andropov-media--rounded andropov-media--bordered andropov-media--has-preview andropov-image"
+                  style="
+                    aspect-ratio: 1 / 1;
+                    width: 36px;
+                    height: 36px;
+                    max-width: none;
+                    --background-color: #dddddd;
+                  "
+                  data-loaded="true"
                 >
-                  {{ getUserInitials(message.author.name || "User") }}
+                  <picture>
+                    <source
+                      v-if="message.author.picture"
+                      :srcset="`${message.author.picture}-/format/jpeg/-/scale_crop/72x72/-/format/webp, ${message.author.picture}-/format/jpeg/-/scale_crop/72x72/-/format/webp 2x`"
+                      type="image/webp"
+                    />
+                    <img
+                      v-if="message.author.picture"
+                      :src="`${message.author.picture}-/format/jpeg/-/scale_crop/72x72/`"
+                      :srcset="`${message.author.picture}-/format/jpeg/-/scale_crop/72x72/, ${message.author.picture}/-/format/jpeg/-/scale_crop/72x72/ 2x`"
+                      alt=""
+                      loading="lazy"
+                    />
+                  </picture>
                 </div>
               </div>
-
-              <div class="chat-sidebar__message-content">
-                <div class="chat-sidebar__message-header">
-                  <span class="chat-sidebar__message-author">{{
-                    message.author.name
-                  }}</span>
-                  <span class="chat-sidebar__message-time">{{
-                    formatMessageTime(message.dtCreated)
-                  }}</span>
+              <div class="channel__popover__messages__message__body">
+                <b>{{ message.author.title }}</b>
+                <div v-if="message.text">{{ message.text }}</div>
+                <div
+                  v-if="message.media"
+                  class="channel__popover__messages__message__media"
+                >
+                  <template v-if="message.media[0]">
+                    <a
+                      v-if="
+                        message.media[0].type === 'image' &&
+                        message.media[0].data.type !== 'gif'
+                      "
+                      :href="`https://leonardo.osnova.io/${message.media[0].data.uuid}/`"
+                      target="_blank"
+                    >
+                      <img
+                        :src="`https://leonardo.osnova.io/${message.media[0].data.uuid}/-/preview/100x/`"
+                      />
+                    </a>
+                    <a
+                      v-if="
+                        message.media[0].type === 'video' ||
+                        message.media[0].data.type === 'gif'
+                      "
+                      :href="`https://leonardo.osnova.io/${message.media[0].data.uuid}/`"
+                      target="_blank"
+                    >
+                      <video
+                        preload="auto"
+                        autoplay
+                        playsinline
+                        loop
+                        :src="`https://leonardo.osnova.io/${message.media[0].data.uuid}/-/format/mp4#t=0.1`"
+                      ></video>
+                    </a>
+                  </template>
                 </div>
-
-                <div class="chat-sidebar__message-body">
-                  <p
-                    v-if="message.type === 'text' || !message.type"
-                    class="chat-sidebar__message-text"
-                  >
-                    {{ message.text }}
-                  </p>
-                  <div
-                    v-else-if="
-                      message.type === 'media' &&
-                      message.media &&
-                      message.media[0]?.type === 'image'
-                    "
-                    class="chat-sidebar__message-image"
-                  >
-                    <img
-                      :src="message.media[0]?.data?.url"
-                      :alt="message.text"
-                      class="max-w-xs rounded-lg"
-                    />
-                    <p v-if="message.text" class="mt-1">{{ message.text }}</p>
-                  </div>
-                  <div
-                    v-else-if="message.type === 'media' && message.media"
-                    class="chat-sidebar__message-file"
-                  >
-                    <div class="flex items-center p-3 bg-gray-100 rounded-lg">
-                      <svg
-                        class="w-6 h-6 text-gray-600 mr-2"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fill-rule="evenodd"
-                          d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
-                          clip-rule="evenodd"
-                        />
-                      </svg>
-                      <span>{{
-                        message.text || message.media[0]?.data?.name || "Файл"
-                      }}</span>
-                    </div>
-                  </div>
-                </div>
+              </div>
+              <div class="channel__popover__messages__message__date">
+                <p>{{ formatMessageTime(message.dtCreated) }}</p>
               </div>
             </div>
 
@@ -233,54 +230,46 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from "vue";
+import { ref, computed, nextTick, watch, toRaw } from "vue";
 import { useChannelsStore } from "@/stores/channels";
 import { useMessagesStore } from "@/stores/messages";
 import { useUIStore } from "@/stores/ui";
-import { useAuthStore } from "@/stores/auth";
-import { formatMessageTime } from "@/utils/date";
 import LoadingSpinner from "./LoadingSpinner.vue";
 import type { Message } from "@/types/api";
+import { formatMessageTime } from "@/utils/date";
 
 const channelsStore = useChannelsStore();
 const messagesStore = useMessagesStore();
 const uiStore = useUIStore();
-const authStore = useAuthStore();
 
 const activeChannel = computed(() => channelsStore.activeChannel);
-const messages = computed(() => messagesStore.messages);
 const typingUsers = computed(() => messagesStore.typingUsers);
 const isSending = ref(false);
 const messageText = ref("");
 const messageInput = ref<HTMLTextAreaElement | null>(null);
 const messagesContainer = ref<HTMLElement | null>(null);
 
+// Fetch messages when activeChannel changes
+watch(
+  () => activeChannel.value?.id,
+  async (channelId) => {
+    if (channelId) {
+      await messagesStore.fetchMessages(channelId);
+    }
+  },
+  { immediate: true }
+);
+
 function closeChatSidebar() {
   uiStore.setChatSidebarOpen(false);
 }
 
-function getUserInitials(name: string) {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
-
-function isOwnMessage(message: Message): boolean {
-  const mutableMessage =
-    message.media &&
-    Array.isArray(message.media) &&
-    Object.isFrozen(message.media)
-      ? { ...message, media: Array.from(message.media) }
-      : message;
-  return mutableMessage.author.id === authStore.user?.id;
-}
-
 function getTypingText(users: typeof typingUsers.value) {
   if (!users.length) return "";
-  if (users.length === 1) return `${users[0].name} печатает...`;
-  return `${users.map((u: { name: string }) => u.name).join(", ")} печатают...`;
+  // Use .title if present, else .name
+  const getDisplayName = (u: any) => u.title || u.name || "Пользователь";
+  if (users.length === 1) return `${getDisplayName(users[0])} печатает...`;
+  return `${users.map(getDisplayName).join(", ")} печатают...`;
 }
 
 function toggleMediaUpload() {
@@ -325,6 +314,17 @@ async function sendMessage() {
     isSending.value = false;
   }
 }
+
+function deepToRawMessage(msg: any): Message {
+  // toRaw снимает только верхний уровень readonly, media может быть тоже readonly
+  return {
+    ...toRaw(msg),
+    media: msg.media
+      ? msg.media.map((m: any) => ({ ...toRaw(m), data: { ...toRaw(m.data) } }))
+      : undefined,
+  };
+}
+const messages = computed(() => messagesStore.messages.map(deepToRawMessage));
 </script>
 
 <style scoped>
@@ -394,15 +394,19 @@ async function sendMessage() {
 }
 
 .chat-sidebar__message {
-  @apply flex items-start space-x-3;
+  @apply flex w-full mb-2;
 }
 
 .chat-sidebar__message--own {
-  @apply flex-row-reverse space-x-reverse;
+  @apply flex-row;
+}
+
+.chat-sidebar__message:not(.chat-sidebar__message--own) {
+  @apply flex-row;
 }
 
 .chat-sidebar__message-content {
-  @apply flex-1 min-w-0;
+  @apply flex flex-col max-w-xl;
 }
 
 .chat-sidebar__message-header {
@@ -498,5 +502,90 @@ async function sendMessage() {
 
 .dark .chat-sidebar__input-field {
   @apply bg-gray-700 border-gray-600 text-gray-100;
+}
+
+.chat-sidebar__message-bubble {
+  @apply px-4 py-2 rounded-2xl max-w-xl break-words transition-colors duration-200;
+}
+.chat-sidebar__message--own .chat-sidebar__message-bubble {
+  @apply bg-dtf-orange text-white rounded-br-md rounded-tl-2xl rounded-bl-2xl;
+}
+.chat-sidebar__message:not(.chat-sidebar__message--own)
+  .chat-sidebar__message-bubble {
+  @apply bg-gray-100 text-gray-900 rounded-bl-md rounded-tr-2xl rounded-br-2xl;
+}
+.dark
+  .chat-sidebar__message:not(.chat-sidebar__message--own)
+  .chat-sidebar__message-bubble {
+  @apply bg-gray-700 text-gray-100;
+}
+
+.channel__popover__messages {
+  height: 320px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.channel__popover__messages__content {
+}
+.channel__popover__messages__message {
+  display: flex;
+  align-items: flex-start;
+  padding: 6px 10px;
+  margin: 4px 0;
+  background: #fafbfc;
+  border-radius: 10px;
+  border: 1px solid #ececec;
+  font-size: 14px;
+  min-width: 0;
+  max-width: 100%;
+  word-break: break-word;
+}
+.channel__popover__messages__message__image {
+  display: flex;
+  align-items: flex-start;
+  margin-right: 8px;
+}
+.channel__popover__messages__message__image img,
+.channel__popover__messages__message__image picture {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  object-fit: cover;
+  background: #eee;
+}
+.channel__popover__messages__message__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-word;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #222;
+}
+.channel__popover__messages__message__body b {
+  font-weight: 600;
+  font-size: 14px;
+}
+.channel__popover__messages__message__body div {
+  line-height: 1.4;
+}
+.channel__popover__messages__message__media {
+  margin: 5px 0 0 0;
+}
+.channel__popover__messages__message__media img,
+.channel__popover__messages__message__media video {
+  max-width: 160px;
+  max-height: 100px;
+  border-radius: 8px;
+  margin-top: 2px;
+}
+.channel__popover__messages__message__date {
+  align-self: flex-end;
+  margin-left: 8px;
+  white-space: nowrap;
+  font-size: 12px;
+  color: #888;
+  line-height: 1;
 }
 </style>

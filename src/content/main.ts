@@ -2,6 +2,7 @@ import { createApp } from "vue";
 import { pinia } from "@/stores";
 import App from "./App.vue";
 import "./content.css";
+import { useAuthStore } from "@/stores/auth";
 
 // Initialize DTF Messenger content script
 // DTF Messenger initialization
@@ -32,6 +33,10 @@ function initializeApp() {
     // Create Vue app
     const app = createApp(App);
     app.use(pinia);
+
+    // Ensure auth store is initialized before anything else
+    const authStore = useAuthStore();
+    authStore.initialize();
 
     // Add error handler
     app.config.errorHandler = (err) => {

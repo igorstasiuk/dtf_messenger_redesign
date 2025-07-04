@@ -38,7 +38,7 @@ export default defineConfig({
       input: {
         content: resolve(__dirname, "src/content/main.ts"),
         background: resolve(__dirname, "src/background/service-worker.ts"),
-        // popup: resolve(__dirname, "src/popup/index.html"),
+        popup: resolve(__dirname, "src/popup/index.html"),
       },
       output: {
         entryFileNames: (chunk) => {

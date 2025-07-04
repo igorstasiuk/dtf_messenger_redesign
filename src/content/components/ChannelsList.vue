@@ -39,49 +39,6 @@
         </button>
       </div>
       <div class="channels-list">
-        <!-- Search -->
-        <div class="channels-list__search">
-          <div class="relative">
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Поиск каналов..."
-              class="channels-list__search-input"
-            />
-            <svg
-              class="channels-list__search-icon"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          </div>
-        </div>
-
-        <!-- Create Channel Button -->
-        <div class="channels-list__actions">
-          <button
-            type="button"
-            class="channels-list__create-btn"
-            :disabled="isCreatingChannel"
-            @click="showCreateChannelDialog = true"
-          >
-            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fill-rule="evenodd"
-                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                clip-rule="evenodd"
-              />
-            </svg>
-            Создать канал
-          </button>
-        </div>
-
-        <!-- Channels List -->
         <div class="channels-list__content">
           <div
             v-if="isLoading"
@@ -91,11 +48,7 @@
             <LoadingSpinner />
             <span class="ml-2">Загрузка каналов...</span>
           </div>
-
-          <div
-            v-else-if="filteredChannels.length === 0"
-            class="channels-list__empty"
-          >
+          <div v-else-if="channels.length === 0" class="channels-list__empty">
             <div class="text-center py-8">
               <svg
                 class="w-12 h-12 mx-auto text-gray-400 mb-4"
@@ -106,17 +59,12 @@
                   d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"
                 />
               </svg>
-              <p class="text-gray-500">
-                {{
-                  searchQuery ? "Каналы не найдены" : "Нет доступных каналов"
-                }}
-              </p>
+              <p class="text-gray-500">Нет доступных каналов</p>
             </div>
           </div>
-
           <div v-else class="channels-list__items">
             <div
-              v-for="channel in filteredChannels"
+              v-for="channel in channels"
               :key="channel.id"
               class="channel-item"
               :class="{
@@ -135,7 +83,6 @@
                   {{ getChannelInitials(channel.title) }}
                 </div>
               </div>
-
               <div class="channel-item__content">
                 <div class="channel-item__header">
                   <h3 class="channel-item__name">{{ channel.title }}</h3>
@@ -146,27 +93,12 @@
                     {{ channel.unreadCount > 99 ? "99+" : channel.unreadCount }}
                   </div>
                 </div>
-
                 <p
                   v-if="channel.lastMessage"
                   class="channel-item__last-message"
                 >
-                  {{
-                    getLastMessagePreview(
-                      channel.lastMessage &&
-                        channel.lastMessage.media &&
-                        Object.isFrozen(channel.lastMessage.media)
-                        ? {
-                            ...channel.lastMessage,
-                            media: Array.from(channel.lastMessage.media).map(
-                              (m: MediaFile) => ({ ...m })
-                            ),
-                          }
-                        : channel.lastMessage
-                    )
-                  }}
+                  {{ getLastMessagePreview(channel.lastMessage) }}
                 </p>
-
                 <div class="channel-item__meta">
                   <span
                     v-if="channel.lastMessage?.dtCreated"
@@ -184,91 +116,27 @@
             </div>
           </div>
         </div>
-
-        <!-- Create Channel Dialog -->
-        <div
-          v-if="showCreateChannelDialog"
-          class="channels-list__dialog-overlay"
-          @click="closeCreateChannelDialog"
-        >
-          <div class="channels-list__dialog" @click.stop>
-            <h3 class="channels-list__dialog-title">Создать новый канал</h3>
-
-            <form @submit.prevent="createChannel">
-              <div class="mb-4">
-                <label class="block text-sm font-medium mb-2">
-                  Название канала
-                </label>
-                <input
-                  v-model="newChannelName"
-                  type="text"
-                  required
-                  maxlength="50"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-dtf-orange"
-                  placeholder="Введите название канала"
-                />
-              </div>
-
-              <div class="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  class="px-4 py-2 text-gray-600 hover:text-gray-800"
-                  @click="closeCreateChannelDialog"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  class="px-4 py-2 bg-dtf-orange text-white rounded-md hover:bg-dtf-orange/90 disabled:opacity-50 flex items-center justify-center"
-                  :disabled="!newChannelName.trim() || isCreatingChannel"
-                >
-                  <LoadingSpinner v-if="isCreatingChannel" small class="mr-2" />
-                  Создать
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       </div>
     </div>
   </transition>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { computed } from "vue";
 import { useChannelsStore } from "@/stores/channels";
 import { useUIStore } from "@/stores/ui";
-import { getTimeAgo } from "@/utils/date";
 import LoadingSpinner from "./LoadingSpinner.vue";
-import type { Message, MediaFile, Channel } from "@/types/api";
-
-const emit = defineEmits<{ (e: "select-channel", channelId: number): void }>();
+import type { Message, Channel } from "@/types/api";
 
 const channelsStore = useChannelsStore();
 const uiStore = useUIStore();
 
-const searchQuery = ref("");
-const isCreatingChannel = ref(false);
-const newChannelName = ref("");
-const showCreateChannelDialog = ref(false);
 const isLoading = computed(() => channelsStore.isLoading);
+const channels = computed(() => channelsStore.channels as Channel[]);
 const activeChannelId = computed(() => channelsStore.activeChannelId);
-
-const filteredChannels = computed<Channel[]>(() => {
-  if (!searchQuery.value.trim()) return channelsStore.channels as Channel[];
-  const query = searchQuery.value.toLowerCase();
-  return (channelsStore.channels as Channel[]).filter((channel: Channel) =>
-    channel.title.toLowerCase().includes(query)
-  );
-});
 
 function closeChannelsList() {
   uiStore.setChatSidebarOpen(false);
-}
-
-function closeCreateChannelDialog() {
-  showCreateChannelDialog.value = false;
-  newChannelName.value = "";
 }
 
 function getChannelInitials(title: string) {
@@ -281,55 +149,34 @@ function getChannelInitials(title: string) {
 
 function getLastMessagePreview(message?: Message): string {
   if (!message) return "";
-  let msg: Message = message;
-  if (
-    message.media &&
-    Array.isArray(message.media) &&
-    Object.isFrozen(message.media)
-  ) {
-    msg = {
-      ...message,
-      media: Array.from(message.media).map((m: MediaFile) => ({ ...m })),
-    };
-  }
-  if (msg.type === "text") {
-    return msg.text.length > 50 ? msg.text.substring(0, 50) + "..." : msg.text;
-  } else if (msg.type === "media") {
+  if (message.type === "text") {
+    return message.text.length > 50
+      ? message.text.substring(0, 50) + "..."
+      : message.text;
+  } else if (message.type === "media") {
     return "📷 Медиа";
-  } else if (msg.type === "system") {
+  } else if (message.type === "system") {
     return "Системное сообщение";
   }
   return "Сообщение";
 }
 
-function formatTime(date: Date | number) {
-  return getTimeAgo(
-    typeof date === "number" ? date : Math.floor(date.getTime() / 1000)
-  );
+function formatTime(date: Date) {
+  return date.toLocaleTimeString("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function selectChannel(channelId: number) {
-  emit("select-channel", channelId);
-}
-
-async function createChannel() {
-  if (!newChannelName.value.trim()) return;
-  isCreatingChannel.value = true;
-  try {
-    await channelsStore.createChannel({
-      name: newChannelName.value.trim(),
-      type: "group",
-    });
-    closeCreateChannelDialog();
-  } finally {
-    isCreatingChannel.value = false;
-  }
+  channelsStore.setActiveChannel(channelId);
+  uiStore.setChatSidebarOpen(true);
 }
 </script>
 
 <style scoped>
 .channels-list {
-  @apply h-full bg-white border-r border-gray-200 flex flex-col;
+  @apply h-full max-h-full bg-white border-r border-gray-200 flex flex-col;
 }
 
 .channels-list__header {
@@ -369,7 +216,7 @@ async function createChannel() {
 }
 
 .channels-list__content {
-  @apply flex-1 overflow-y-auto;
+  @apply flex-1 overflow-y-auto h-full max-h-full;
 }
 
 .channels-list__loading {

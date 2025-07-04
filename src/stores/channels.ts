@@ -310,6 +310,9 @@ export const useChannelsStore = defineStore("channels", () => {
     clearChannels();
   }
 
+  // Call initialize automatically when store is created
+  initialize();
+
   // Public API
   return {
     // State

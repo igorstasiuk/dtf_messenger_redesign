@@ -15,7 +15,10 @@ console.log("🚀 Building DTF Messenger Chrome Extension...");
 const isZipMode = process.argv.includes("--zip");
 if (!isZipMode) {
   console.log("📦 Building with Vite...");
-  execSync("vue-tsc && vite build", { stdio: "inherit", cwd: rootDir });
+  execSync("vue-tsc && vite build", {
+    stdio: "inherit",
+    cwd: rootDir,
+  });
 } else {
   console.log("📦 Using existing build for zip creation...");
 }
@@ -110,9 +113,9 @@ if (missingFiles.length > 0) {
 if (process.argv.includes("--zip")) {
   console.log("📦 Creating zip file for Chrome Web Store...");
   try {
-    execSync("cd dist && zip -r ../dtf-messenger-extension.zip .", {
+    execSync("cd dist && zip -r ../dist/dtf-messenger-extension.zip .", {
       stdio: "inherit",
-      cwd: rootDir,
+      cwd: `${rootDir}/dist`,
     });
     console.log("  ✅ Created dtf-messenger-extension.zip");
   } catch (error) {
