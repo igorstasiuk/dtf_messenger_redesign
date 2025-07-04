@@ -17,7 +17,10 @@
     "clean": "rm -rf dist",
     "watch": "vite build --mode development --watch",
     "icons:create": "node scripts/create-icons.js",
-    "setup": "npm install && npm run icons:create"
+    "setup": "npm install && npm run icons:create",
+    "changelog": "node scripts/generate-changelog.js",
+    "release": "npm run build && npm run changelog && npm run build:zip && git add CHANGELOG.md && git commit -m 'chore(release): update changelog' && npm run tag-release && git push --follow-tags",
+    "tag-release": "node -e \"const v=require('./package.json').version;require('child_process').execSync('git tag v'+v)\""
   },
   "dependencies": {
     "@vueuse/core": "^10.7.0",
@@ -31,7 +34,7 @@
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
     "@vitejs/plugin-vue": "^4.5.0",
-    "@vitest/coverage-v8": "^1.0.0",
+    "@vitest/coverage-v8": "^1.6.1",
     "@vitest/ui": "^1.0.0",
     "@vue/eslint-config-prettier": "^9.0.0",
     "@vue/eslint-config-typescript": "^12.0.0",
@@ -39,6 +42,7 @@
     "@vue/tsconfig": "^0.5.0",
     "autoprefixer": "^10.4.16",
     "chokidar": "^3.5.3",
+    "codecov": "^3.8.3",
     "eslint": "^8.56.0",
     "eslint-plugin-vue": "^9.33.0",
     "jsdom": "^23.0.1",

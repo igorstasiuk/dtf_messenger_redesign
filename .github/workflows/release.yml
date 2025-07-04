@@ -1,0 +1,42 @@
+name: Release CI
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run type-check
+      - run: npm run test
+      - name: Generate coverage report
+        run: npx vitest run --coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/coverage-final.json
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - run: npm run build
+      - run: npm run changelog
+      - run: npm run build:zip
+      - name: Upload dist zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: dtf-messenger-extension
+          path: dtf-messenger-extension.zip
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dtf-messenger-extension.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

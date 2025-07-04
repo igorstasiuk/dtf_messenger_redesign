@@ -1,5 +1,11 @@
 # DTF Messenger Chrome Extension
 
+![Release](https://github.com/hikari/dtf_messenger_redesign/actions/workflows/release.yml/badge.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/hikari/dtf_messenger_redesign/pulls)
+
+<!-- [![codecov](https://codecov.io/gh/hikari/dtf_messenger_redesign/branch/main/graph/badge.svg)](https://codecov.io/gh/hikari/dtf_messenger_redesign) -->
+
 Современное Chrome расширение для чата на DTF.ru, построенное с использованием Vue 3, TypeScript и Tailwind CSS.
 
 ## 🚀 Особенности
@@ -153,11 +159,9 @@ npm run test:e2e
 
 ```css
 /* Основные цвета */
---dtf-primary: #8000ff
---dtf-background-light: #ffffff
---dtf-background-dark: #1a1a1a
---dtf-text-light: #333333
---dtf-text-dark: #ffffff
+--dtf-primary: #8000ff --dtf-background-light: #ffffff
+  --dtf-background-dark: #1a1a1a --dtf-text-light: #333333
+  --dtf-text-dark: #ffffff;
 ```
 
 ### Автоматическая смена темы
