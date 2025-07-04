@@ -42,15 +42,17 @@ const types = {
   ci: "🤖 CI",
 };
 
-const entries = log.split("\n").map((line) => {
-  const [hash, date, subject] = line.split("|");
-  // Определяем тип коммита
-  if (typeof subject !== "string")
-    return { hash, date, subject, type: "other" };
-  const match = subject.match(/^(\w+)(\(.+\))?:/);
-  const type = match ? match[1] : "other";
-  return { hash, date, subject, type };
-});
+const entries = log
+  .split("\n")
+  .map((line) => {
+    const [hash, date, subject] = line.split("|");
+    // Фильтруем коммиты без subject
+    if (!subject || typeof subject !== "string" || !subject.trim()) return null;
+    const match = subject.match(/^(\w+)(\(.+\))?:/);
+    const type = match ? match[1] : "other";
+    return { hash, date, subject, type };
+  })
+  .filter(Boolean);
 
 // Группируем по типу
 const grouped = {};
