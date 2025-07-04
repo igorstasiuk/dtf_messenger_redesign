@@ -17,9 +17,14 @@ const rootDir = resolve(__dirname, "..");
 
 console.log("🚀 Building DTF Messenger Chrome Extension...");
 
-// Step 1: Clean and build
-console.log("📦 Building with Vite...");
-execSync("npm run build", { stdio: "inherit", cwd: rootDir });
+// Step 1: Clean and build (skip if already built for zip)
+const isZipMode = process.argv.includes("--zip");
+if (!isZipMode) {
+  console.log("📦 Building with Vite...");
+  execSync("vue-tsc && vite build", { stdio: "inherit", cwd: rootDir });
+} else {
+  console.log("📦 Using existing build for zip creation...");
+}
 
 // Step 2: Copy icons to dist if they exist
 console.log("🎨 Copying icons...");
@@ -31,18 +36,24 @@ if (existsSync(iconsDir)) {
     mkdirSync(distIconsDir, { recursive: true });
   }
 
-  // Copy icon files if they exist, otherwise create placeholder
+  // Copy icon files (SVG and PNG)
   const iconSizes = [16, 32, 48, 128];
   iconSizes.forEach((size) => {
-    const iconPath = resolve(iconsDir, `icon-${size}.png`);
-    const distIconPath = resolve(distIconsDir, `icon-${size}.png`);
+    // Try SVG first, then PNG
+    const svgPath = resolve(iconsDir, `icon-${size}.svg`);
+    const pngPath = resolve(iconsDir, `icon-${size}.png`);
+    const distSvgPath = resolve(distIconsDir, `icon-${size}.svg`);
+    const distPngPath = resolve(distIconsDir, `icon-${size}.png`);
 
-    if (existsSync(iconPath)) {
-      copyFileSync(iconPath, distIconPath);
+    if (existsSync(svgPath)) {
+      copyFileSync(svgPath, distSvgPath);
+      console.log(`  ✅ Copied icon-${size}.svg`);
+    } else if (existsSync(pngPath)) {
+      copyFileSync(pngPath, distPngPath);
       console.log(`  ✅ Copied icon-${size}.png`);
     } else {
       console.log(
-        `  ⚠️  Icon icon-${size}.png not found, you'll need to add it manually`
+        `  ⚠️  Icon icon-${size}.svg/png not found, you'll need to add it manually`
       );
     }
   });
@@ -79,9 +90,10 @@ if (existsSync(manifestPath)) {
 // Step 4: Check required files
 console.log("🔍 Checking required files...");
 const requiredFiles = [
-  "content/main.js",
-  "background/service-worker.js",
-  "popup/index.html",
+  "content.js",
+  "background.js",
+  "content.css",
+  "manifest.json",
 ];
 
 const missingFiles = [];

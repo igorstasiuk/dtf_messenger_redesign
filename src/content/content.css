@@ -1,6 +1,9 @@
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+/* Import DTF Modern Theme */
+@import "../styles/dtf-theme.css";
 
 /* DTF Messenger Global Styles */
 
@@ -8,7 +11,13 @@
 #dtf-messenger-root {
   position: relative;
   z-index: 9999;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Roboto",
+    sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: #202124;
@@ -227,7 +236,7 @@
   .dtf-chat-sidebar {
     @apply w-full;
   }
-  
+
   .dtf-message-bubble {
     @apply max-w-[80%];
   }
@@ -262,7 +271,13 @@
 #dtf-messenger-root .dtf-channels-list,
 #dtf-messenger-root .dtf-chat-sidebar,
 #dtf-messenger-root .dtf-notification {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Roboto",
+    sans-serif !important;
   font-size: 14px !important;
   line-height: 1.5 !important;
 }

@@ -1,253 +1,258 @@
-import { defineStore } from 'pinia'
-import { ref, computed, readonly } from 'vue'
-import type { Message } from '@/types/api'
-import type { TypingUser } from '@/types/message'
-import { dtfAPI } from '@/utils/api'
-import { useAuthStore } from './auth'
-import { useChannelsStore } from './channels'
-import { getCurrentTimestamp } from '@/utils/date'
+import { defineStore } from "pinia";
+import { ref, computed, readonly } from "vue";
+import type { Message } from "@/types/api";
+import { dtfAPI } from "@/utils/api";
+import { useAuthStore } from "./auth";
+import { useChannelsStore } from "./channels";
+import { getCurrentTimestamp } from "@/utils/date";
 
-export const useMessagesStore = defineStore('messages', () => {
+export const useMessagesStore = defineStore("messages", () => {
   // State
-  const messages = ref<Message[]>([])
-  const isLoading = ref(false)
-  const hasMoreMessages = ref(true)
-  const error = ref<string | null>(null)
-  const lastFetch = ref<number | null>(null)
-  const typingUsers = ref<TypingUser[]>([])
-  const scrollPosition = ref(0)
+  const messages = ref<Message[]>([]);
+  const isLoading = ref(false);
+  const hasMoreMessages = ref(true);
+  const error = ref<string | null>(null);
+  const lastFetch = ref<number | null>(null);
+  const typingUsers = ref<any[]>([]);
+  const scrollPosition = ref(0);
 
   // Message composition state
-  const draftText = ref('')
-  const uploadingFiles = ref<File[]>([])
-  const isUploading = ref(false)
-  const uploadProgress = ref<Record<string, number>>({})
+  const draftText = ref("");
+  const uploadingFiles = ref<File[]>([]);
+  const isUploading = ref(false);
+  const uploadProgress = ref<Record<string, number>>({});
 
   // Computed
   const sortedMessages = computed(() => {
-    return [...messages.value].sort((a, b) => a.dtCreated - b.dtCreated)
-  })
+    return [...messages.value].sort((a, b) => a.dtCreated - b.dtCreated);
+  });
 
   const unreadCount = computed(() => {
-    return messages.value.filter(message => !message.isRead).length
-  })
+    return messages.value.filter((message) => !message.isRead).length;
+  });
 
   const latestMessage = computed(() => {
-    const sorted = sortedMessages.value
-    return sorted.length > 0 ? sorted[sorted.length - 1] : null
-  })
+    const sorted = sortedMessages.value;
+    return sorted.length > 0 ? sorted[sorted.length - 1] : null;
+  });
 
   const oldestMessage = computed(() => {
-    const sorted = sortedMessages.value
-    return sorted.length > 0 ? sorted[0] : null
-  })
+    const sorted = sortedMessages.value;
+    return sorted.length > 0 ? sorted[0] : null;
+  });
 
   // Actions
   function setMessages(newMessages: Message[]) {
-    messages.value = newMessages
-    lastFetch.value = Date.now()
+    messages.value = newMessages;
+    lastFetch.value = Date.now();
   }
 
   function addMessage(message: Message) {
-    const existingIndex = messages.value.findIndex(m => m.id === message.id)
-    
+    const existingIndex = messages.value.findIndex((m) => m.id === message.id);
+
     if (existingIndex >= 0) {
-      messages.value[existingIndex] = message
+      messages.value[existingIndex] = message;
     } else {
-      messages.value.push(message)
+      messages.value.push(message);
     }
   }
 
   function prependMessages(newMessages: Message[]) {
     const uniqueMessages = newMessages.filter(
-      newMsg => !messages.value.some(existing => existing.id === newMsg.id)
-    )
-    messages.value.unshift(...uniqueMessages)
+      (newMsg) => !messages.value.some((existing) => existing.id === newMsg.id)
+    );
+    messages.value.unshift(...uniqueMessages);
   }
 
   function appendMessages(newMessages: Message[]) {
     const uniqueMessages = newMessages.filter(
-      newMsg => !messages.value.some(existing => existing.id === newMsg.id)
-    )
-    messages.value.push(...uniqueMessages)
+      (newMsg) => !messages.value.some((existing) => existing.id === newMsg.id)
+    );
+    messages.value.push(...uniqueMessages);
   }
 
   function updateMessage(messageId: number, updates: Partial<Message>) {
-    const index = messages.value.findIndex(m => m.id === messageId)
+    const index = messages.value.findIndex((m) => m.id === messageId);
     if (index >= 0) {
-      messages.value[index] = { ...messages.value[index], ...updates }
+      messages.value[index] = { ...messages.value[index], ...updates };
     }
   }
 
   function removeMessage(messageId: number) {
-    const index = messages.value.findIndex(m => m.id === messageId)
+    const index = messages.value.findIndex((m) => m.id === messageId);
     if (index >= 0) {
-      messages.value.splice(index, 1)
+      messages.value.splice(index, 1);
     }
   }
 
   function markAsRead(messageIds: number[]) {
-    messageIds.forEach(id => {
-      const message = messages.value.find(m => m.id === id)
+    messageIds.forEach((id) => {
+      const message = messages.value.find((m) => m.id === id);
       if (message) {
-        message.isRead = true
+        message.isRead = true;
       }
-    })
+    });
   }
 
   function setLoading(loading: boolean) {
-    isLoading.value = loading
+    isLoading.value = loading;
   }
 
   function setError(newError: string | null) {
-    error.value = newError
+    error.value = newError;
   }
 
   function clearMessages() {
-    messages.value = []
-    hasMoreMessages.value = true
-    lastFetch.value = null
-    clearTyping()
-    clearDraft()
+    messages.value = [];
+    hasMoreMessages.value = true;
+    lastFetch.value = null;
+    clearTyping();
+    clearDraft();
   }
 
   // Typing indicators
-  function addTypingUser(user: TypingUser) {
-    const existingIndex = typingUsers.value.findIndex(u => u.id === user.id)
+  function addTypingUser(user: any) {
+    const existingIndex = typingUsers.value.findIndex((u) => u.id === user.id);
     if (existingIndex >= 0) {
-      typingUsers.value[existingIndex] = user
+      typingUsers.value[existingIndex] = user;
     } else {
-      typingUsers.value.push(user)
+      typingUsers.value.push(user);
     }
 
     setTimeout(() => {
-      removeTypingUser(user.id)
-    }, 5000)
+      removeTypingUser(user.id);
+    }, 5000);
   }
 
   function removeTypingUser(userId: number) {
-    const index = typingUsers.value.findIndex(u => u.id === userId)
+    const index = typingUsers.value.findIndex((u) => u.id === userId);
     if (index >= 0) {
-      typingUsers.value.splice(index, 1)
+      typingUsers.value.splice(index, 1);
     }
   }
 
   function clearTyping() {
-    typingUsers.value = []
+    typingUsers.value = [];
   }
 
   // Typing management helpers
   function setTyping(isTyping: boolean) {
-    const authStore = useAuthStore()
-    if (!authStore.user) return
-    
+    const authStore = useAuthStore();
+    if (!authStore.user) return;
+
     if (isTyping) {
       addTypingUser({
         id: authStore.user.id,
-        name: authStore.user.name || 'User',
-        avatar: authStore.user.avatar_url || '',
-        startedAt: Date.now()
-      })
+        name: authStore.user.name || "User",
+        avatar: authStore.user.avatar_url || "",
+        startedAt: Date.now(),
+      });
     } else {
-      removeTypingUser(authStore.user.id)
+      removeTypingUser(authStore.user.id);
     }
   }
 
   // Draft management
   function setDraftText(text: string) {
-    draftText.value = text
+    draftText.value = text;
   }
 
   function clearDraft() {
-    draftText.value = ''
-    uploadingFiles.value = []
-    uploadProgress.value = {}
+    draftText.value = "";
+    uploadingFiles.value = [];
+    uploadProgress.value = {};
   }
 
   function setScrollPosition(position: number) {
-    scrollPosition.value = position
+    scrollPosition.value = position;
   }
 
   // API Actions
-  async function fetchMessages(channelId: number, beforeTime?: number, limit = 50) {
-    const authStore = useAuthStore()
-    
+  async function fetchMessages(
+    channelId: number,
+    beforeTime?: number,
+    limit = 50
+  ) {
+    const authStore = useAuthStore();
+
     if (!authStore.isAuthenticated) {
-      setError('Not authenticated')
-      return false
+      setError("Not authenticated");
+      return false;
     }
 
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
       const response = await dtfAPI.getMessages({
         channelId,
         beforeTime,
-        limit
-      })
-      
+        limit,
+      });
+
       if (response.success && response.result) {
-        const newMessages = response.result.messages
-        
+        const newMessages = response.result.messages;
+
         if (beforeTime) {
-          prependMessages(newMessages)
+          prependMessages(newMessages);
         } else {
-          setMessages(newMessages)
+          setMessages(newMessages);
         }
-        
-        hasMoreMessages.value = newMessages.length === limit
-        
-        console.log(`DTF Messenger: Loaded ${newMessages.length} messages for channel ${channelId}`)
-        return true
+
+        hasMoreMessages.value = newMessages.length === limit;
+
+        return true;
       } else {
-        setError(response.error?.message || 'Failed to load messages')
-        return false
+        setError(response.error?.message || "Failed to load messages");
+        return false;
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      setError(errorMessage)
-      console.error('DTF Messenger: Error fetching messages:', error)
-      return false
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      setError(errorMessage);
+      return false;
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
-  async function sendMessage(params: { channelId: number, text: string, media?: File[], type?: string }) {
-    const { channelId, text, media = [], type: _type = 'text' } = params
-    const authStore = useAuthStore()
-    
+  async function sendMessage(params: {
+    channelId: number;
+    text: string;
+    media?: File[];
+    type?: string;
+  }) {
+    const { channelId, text, media = [], type: _type = "text" } = params;
+    const authStore = useAuthStore();
+
     if (!authStore.isAuthenticated) {
-      setError('Not authenticated')
-      return null
+      setError("Not authenticated");
+      return null;
     }
 
     if (!text.trim() && media.length === 0) {
-      setError('Message cannot be empty')
-      return null
+      setError("Message cannot be empty");
+      return null;
     }
 
-    setError(null)
+    setError(null);
 
     try {
-      let uploadedMedia: any[] = []
-      
+      let uploadedMedia: any[] = [];
+
       if (media.length > 0) {
-        isUploading.value = true
-        
+        isUploading.value = true;
+
         for (const file of media) {
           try {
-            const uploadResponse = await dtfAPI.uploadFile(file)
+            const uploadResponse = await dtfAPI.uploadFile(file);
             if (uploadResponse.success && uploadResponse.result) {
-              uploadedMedia.push(uploadResponse.result)
+              uploadedMedia.push(uploadResponse.result);
             }
-          } catch (uploadError) {
-            console.error('DTF Messenger: Failed to upload file:', uploadError)
-          }
+          } catch (uploadError) {}
         }
-        
-        isUploading.value = false
+
+        isUploading.value = false;
       }
 
       const response = await dtfAPI.sendMessage({
@@ -255,55 +260,52 @@ export const useMessagesStore = defineStore('messages', () => {
         text: text.trim(),
         media: uploadedMedia,
         ts: getCurrentTimestamp(),
-        idTmp: getCurrentTimestamp().toString()
-      })
-      
+        idTmp: getCurrentTimestamp().toString(),
+      });
+
       if (response.success && response.result) {
-        const newMessage = response.result.message
-        addMessage(newMessage)
-        
-        const channelsStore = useChannelsStore()
+        const newMessage = response.result.message;
+        addMessage(newMessage);
+
+        const channelsStore = useChannelsStore();
         channelsStore.updateChannel(channelId, {
-          lastMessage: newMessage
-        })
-        
-        clearDraft()
-        console.log('DTF Messenger: Message sent successfully')
-        return newMessage
+          lastMessage: newMessage,
+        });
+
+        clearDraft();
+        return newMessage;
       } else {
-        setError(response.error?.message || 'Failed to send message')
-        return null
+        setError(response.error?.message || "Failed to send message");
+        return null;
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      setError(errorMessage)
-      console.error('DTF Messenger: Error sending message:', error)
-      return null
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      setError(errorMessage);
+      return null;
     }
   }
 
   async function markChannelAsRead(channelId: number) {
-    const unreadMessages = messages.value.filter(m => !m.isRead)
-    if (unreadMessages.length === 0) return
+    const unreadMessages = messages.value.filter((m) => !m.isRead);
+    if (unreadMessages.length === 0) return;
 
-    const messageIds = unreadMessages.map(m => m.id)
-    
+    const messageIds = unreadMessages.map((m) => m.id);
+
     try {
-      const response = await dtfAPI.markAsRead(channelId, messageIds)
+      const response = await dtfAPI.markAsRead(channelId, messageIds);
       if (response.success) {
-        markAsRead(messageIds)
-        
-        const channelsStore = useChannelsStore()
-        channelsStore.updateUnreadCount(channelId, 0)
+        markAsRead(messageIds);
+
+        const channelsStore = useChannelsStore();
+        channelsStore.updateUnreadCount(channelId, 0);
       }
-    } catch (error) {
-      console.error('DTF Messenger: Error marking messages as read:', error)
-    }
+    } catch (error) {}
   }
 
   // Alias for component compatibility
   function loadMessages(channelId: number) {
-    return fetchMessages(channelId)
+    return fetchMessages(channelId);
   }
 
   // Public API
@@ -320,13 +322,13 @@ export const useMessagesStore = defineStore('messages', () => {
     uploadingFiles: readonly(uploadingFiles),
     isUploading: readonly(isUploading),
     uploadProgress: readonly(uploadProgress),
-    
+
     // Computed
     sortedMessages,
     unreadCount,
     latestMessage,
     oldestMessage,
-    
+
     // Actions
     setMessages,
     addMessage,
@@ -338,22 +340,22 @@ export const useMessagesStore = defineStore('messages', () => {
     setLoading,
     setError,
     clearMessages,
-    
+
     // Typing
     addTypingUser,
     removeTypingUser,
     clearTyping,
     setTyping,
-    
+
     // Draft
     setDraftText,
     clearDraft,
     setScrollPosition,
-    
+
     // API Actions
     fetchMessages,
     loadMessages,
     sendMessage,
-    markChannelAsRead
-  }
-}) 
+    markChannelAsRead,
+  };
+});

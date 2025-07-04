@@ -1,15 +1,32 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DTF Messenger</title>
-    <link rel="stylesheet" href="../content/styles.css" />
+    <title>DTF Messenger Popup</title>
+    <link rel="stylesheet" href="../content.css" />
+    <style>
+      body {
+        min-width: 320px;
+        min-height: 200px;
+        background: #1a1a1a;
+        color: #fff;
+        font-family: system-ui, sans-serif;
+      }
+      #app {
+        padding: 1rem;
+      }
+    </style>
   </head>
   <body>
-    <div id="popup-app" class="w-80 h-96 bg-white dark:bg-gray-900">
-      <!-- Popup content will be rendered here by Vue -->
+    <div id="app">
+      <h2>DTF Messenger</h2>
+      <p>
+        Расширение успешно установлено.<br />Откройте DTF.ru для использования
+        чата.
+      </p>
     </div>
-    <script type="module" src="./popup.js"></script>
+    <!-- Для Vue popup mount (если потребуется) -->
+    <!-- <script type="module" src="./popup.js"></script> -->
   </body>
 </html>

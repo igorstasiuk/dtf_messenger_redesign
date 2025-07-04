@@ -42,10 +42,10 @@ export const useAuthStore = defineStore("auth", () => {
 
   function setAccessToken(token: string | null) {
     accessToken.value = token;
-    
+
     if (token) {
       // Calculate expiry time (DTF tokens typically last 30 minutes)
-      sessionExpiry.value = Date.now() + (30 * 60 * 1000);
+      sessionExpiry.value = Date.now() + 30 * 60 * 1000;
       updateLastActivity();
       persistSession();
     } else {
@@ -73,51 +73,142 @@ export const useAuthStore = defineStore("auth", () => {
     lastActivity.value = null;
     sessionExpiry.value = null;
     clearSession();
+
+    // ВАЖНО: Очищаем токен из API клиента
+    import("@/utils/api").then(({ dtfAPI }) => {
+      dtfAPI.clearAccessToken();
+    });
+  }
+
+  // Try to extract token from DTF.ru page directly
+  function tryExtractTokenFromPage() {
+    try {
+      // Method 0: Check for "Написать" button as authentication indicator
+      const buttons = Array.from(
+        document.querySelectorAll("button, .button, a")
+      );
+      const writeButton = buttons.find(
+        (btn) =>
+          btn.textContent?.trim() === "Написать" ||
+          btn.textContent?.includes("Написать") ||
+          btn.getAttribute("title")?.includes("Написать") ||
+          btn.getAttribute("href")?.includes("write")
+      );
+
+      if (writeButton) {
+        // Set a placeholder user for now (will be updated when we get real token)
+        if (!user.value) {
+          setUser({
+            id: 0,
+            title: "DTF User",
+            picture: "",
+          });
+        }
+      }
+
+      // Method 1: Check localStorage for DTF session data
+      const localStorageKeys = Object.keys(localStorage);
+
+      const dtfKeys = localStorageKeys.filter(
+        (key) =>
+          key.includes("dtf") ||
+          key.includes("osnova") ||
+          key.includes("auth") ||
+          key.includes("session") ||
+          key.includes("token")
+      );
+
+      dtfKeys.forEach((key) => {
+        try {
+          const value = localStorage.getItem(key);
+
+          // Try to parse as JSON
+          if (value && value.startsWith("{")) {
+            const parsed = JSON.parse(value);
+            if (parsed.accessToken || parsed.access_token || parsed.token) {
+              return parsed.accessToken || parsed.access_token || parsed.token;
+            }
+          }
+        } catch (e) {
+          // Ignore parsing errors
+        }
+      });
+
+      // Method 2: Check window object for DTF data
+      const windowKeys = Object.keys(window).filter(
+        (key) =>
+          key.includes("dtf") ||
+          key.includes("osnova") ||
+          key.includes("auth") ||
+          key.toLowerCase().includes("user")
+      );
+
+      windowKeys.forEach((key) => {
+        try {
+          const value = (window as any)[key];
+          if (value && typeof value === "object") {
+          }
+        } catch (e) {
+          // Ignore access errors
+        }
+      });
+    } catch (error) {}
+
+    return null;
   }
 
   // BroadcastChannel Methods (based on tampermonkey script)
   function initBroadcastChannel() {
     try {
       broadcastChannel.value = new BroadcastChannel("osnova-events");
-      
-      broadcastChannel.value.onmessage = ({ data }: { data: BroadcastChannelEvent }) => {
+
+      broadcastChannel.value.onmessage = ({
+        data,
+      }: {
+        data: BroadcastChannelEvent;
+      }) => {
         handleBroadcastMessage(data);
       };
-      
+
       isListening.value = true;
-      console.log("DTF Messenger: BroadcastChannel initialized");
+
+      // Send a test message to see if channel is working
+      setTimeout(() => {
+        broadcastChannel.value?.postMessage({
+          type: "test",
+          detail: { source: "dtf-messenger" },
+        });
+      }, 1000);
     } catch (error) {
-      console.error("DTF Messenger: Failed to initialize BroadcastChannel:", error);
       setError("Failed to connect to DTF.ru authentication");
     }
   }
 
   function handleBroadcastMessage(data: BroadcastChannelEvent) {
     const { type, detail } = data;
-    
+
     switch (type) {
       case "auth session updated":
         if (detail.session?.accessToken) {
-          console.log("DTF Messenger: Token received from DTF.ru");
           setAccessToken(detail.session.accessToken);
-          
+
           if (detail.session.user) {
             setUser(detail.session.user);
           }
-          
+
           setError(null);
         }
         break;
-        
+
       case "auth logout":
-        console.log("DTF Messenger: Logout received from DTF.ru");
         clearAuth();
         break;
-        
+
       case "auth error":
-        console.error("DTF Messenger: Auth error from DTF.ru:", detail.error);
         setError(detail.error || "Authentication error");
         break;
+
+      default:
     }
   }
 
@@ -138,22 +229,25 @@ export const useAuthStore = defineStore("auth", () => {
         user: user.value,
         accessToken: accessToken.value,
         expiresAt: sessionExpiry.value,
-        lastActivity: lastActivity.value
+        lastActivity: lastActivity.value,
       };
-      
-      localStorage.setItem("dtf-messenger-session", JSON.stringify(sessionData));
-    } catch (error) {
-      console.warn("DTF Messenger: Failed to persist session:", error);
-    }
+
+      localStorage.setItem(
+        "dtf-messenger-session",
+        JSON.stringify(sessionData)
+      );
+    } catch (error) {}
   }
 
   function loadPersistedSession() {
     try {
       const stored = localStorage.getItem("dtf-messenger-session");
-      if (!stored) return false;
+      if (!stored) {
+        return false;
+      }
 
       const sessionData = JSON.parse(stored);
-      
+
       // Check if session is still valid
       if (sessionData.expiresAt && Date.now() > sessionData.expiresAt) {
         clearSession();
@@ -165,53 +259,60 @@ export const useAuthStore = defineStore("auth", () => {
         accessToken.value = sessionData.accessToken;
         sessionExpiry.value = sessionData.expiresAt;
         lastActivity.value = sessionData.lastActivity;
+
+        // ВАЖНО: Устанавливаем токен в API клиент
+        import("@/utils/api").then(({ dtfAPI }) => {
+          dtfAPI.setAccessToken(sessionData.accessToken);
+        });
         return true;
       }
     } catch (error) {
-      console.warn("DTF Messenger: Failed to load persisted session:", error);
       clearSession();
     }
-    
+
     return false;
   }
 
   function clearSession() {
     try {
       localStorage.removeItem("dtf-messenger-session");
-    } catch (error) {
-      console.warn("DTF Messenger: Failed to clear session:", error);
-    }
+    } catch (error) {}
   }
 
   // Auto-refresh token before expiry
   function setupAutoRefresh() {
     // Check every 5 minutes
-    setInterval(() => {
-      if (timeUntilExpiry.value !== null && timeUntilExpiry.value < 5 * 60 * 1000) {
-        console.log("DTF Messenger: Token expiring soon, requesting refresh");
-        // The tampermonkey script doesn't implement refresh, so we just wait for new token
-        setError("Session expiring soon. Please refresh DTF.ru page.");
-      }
-    }, 5 * 60 * 1000);
+    setInterval(
+      () => {
+        if (
+          timeUntilExpiry.value !== null &&
+          timeUntilExpiry.value < 5 * 60 * 1000
+        ) {
+          setError("Session expiring soon. Please refresh DTF.ru page.");
+        }
+      },
+      5 * 60 * 1000
+    );
   }
 
   // Initialization
   function initialize() {
     setLoading(true);
-    
+
     // Try to load persisted session first
     const hasPersistedSession = loadPersistedSession();
-    
+
     if (hasPersistedSession) {
-      console.log("DTF Messenger: Loaded persisted session");
+    } else {
+      tryExtractTokenFromPage();
     }
-    
+
     // Initialize BroadcastChannel for live updates
     initBroadcastChannel();
-    
+
     // Setup auto-refresh
     setupAutoRefresh();
-    
+
     setLoading(false);
   }
 
@@ -231,12 +332,12 @@ export const useAuthStore = defineStore("auth", () => {
     lastActivity: readonly(lastActivity),
     sessionExpiry: readonly(sessionExpiry),
     isListening: readonly(isListening),
-    
+
     // Computed
     isAuthenticated,
     isTokenExpired,
     timeUntilExpiry,
-    
+
     // Actions
     setUser,
     setAccessToken,
@@ -248,10 +349,11 @@ export const useAuthStore = defineStore("auth", () => {
     closeBroadcastChannel,
     initialize,
     destroy,
-    
+
     // Utilities
     persistSession,
     loadPersistedSession,
-    clearSession
+    clearSession,
+    tryExtractTokenFromPage,
   };
 });

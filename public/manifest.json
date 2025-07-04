@@ -9,7 +9,14 @@
     "48": "icons/icon-48.svg",
     "128": "icons/icon-128.svg"
   },
-  "permissions": ["storage", "notifications", "activeTab"],
+  "permissions": [
+    "storage",
+    "notifications",
+    "activeTab",
+    "alarms",
+    "scripting",
+    "tabs"
+  ],
   "host_permissions": [
     "https://dtf.ru/*",
     "https://api.dtf.ru/*",

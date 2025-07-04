@@ -1,60 +1,60 @@
-import { computed, onMounted, onUnmounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { dtfAPI } from '@/utils/api'
+import { computed, onMounted, onUnmounted } from "vue";
+import { useAuthStore } from "@/stores/auth";
+import { dtfAPI } from "@/utils/api";
 
 /**
  * Authentication composable with DTF.ru BroadcastChannel integration
  * Based on tampermonkey script authentication flow
  */
 export function useAuth() {
-  const authStore = useAuthStore()
+  const authStore = useAuthStore();
 
   // Computed
-  const isAuthenticated = computed(() => authStore.isAuthenticated)
-  const user = computed(() => authStore.user)
-  const accessToken = computed(() => authStore.accessToken)
-  const isLoading = computed(() => authStore.isLoading)
-  const error = computed(() => authStore.error)
-  const timeUntilExpiry = computed(() => authStore.timeUntilExpiry)
-  const isTokenExpired = computed(() => authStore.isTokenExpired)
+  const isAuthenticated = computed(() => authStore.isAuthenticated);
+  const user = computed(() => authStore.user);
+  const accessToken = computed(() => authStore.accessToken);
+  const isLoading = computed(() => authStore.isLoading);
+  const error = computed(() => authStore.error);
+  const timeUntilExpiry = computed(() => authStore.timeUntilExpiry);
+  const isTokenExpired = computed(() => authStore.isTokenExpired);
 
   // Actions
   function initialize() {
-    authStore.initialize()
+    authStore.initialize();
   }
 
   function clearAuth() {
-    authStore.clearAuth()
+    authStore.clearAuth();
   }
 
   function clearError() {
-    authStore.setError(null)
+    authStore.setError(null);
   }
 
   function updateToken(token: string) {
-    authStore.setAccessToken(token)
-    dtfAPI.setAccessToken(token)
+    authStore.setAccessToken(token);
+    dtfAPI.setAccessToken(token);
   }
 
   function updateUser(userData: any) {
-    authStore.setUser(userData)
+    authStore.setUser(userData);
   }
 
   // Auto-initialization
   onMounted(() => {
-    initialize()
+    initialize();
 
     // Set token in API client if available
-    const token = authStore.accessToken
+    const token = authStore.accessToken;
     if (token) {
-      dtfAPI.setAccessToken(token)
+      dtfAPI.setAccessToken(token);
     }
-  })
+  });
 
   // Cleanup
   onUnmounted(() => {
-    authStore.destroy()
-  })
+    authStore.destroy();
+  });
 
   return {
     // State
@@ -71,6 +71,6 @@ export function useAuth() {
     clearAuth,
     clearError,
     updateToken,
-    updateUser
-  }
+    updateUser,
+  };
 }

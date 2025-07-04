@@ -1,20 +1,18 @@
 import { createApp } from "vue";
 import { pinia } from "@/stores";
 import App from "./App.vue";
-import "./styles.css";
+import "./content.css";
 
 // Initialize DTF Messenger content script
-console.log("DTF Messenger: Content script loaded");
+// DTF Messenger initialization
 
-// Check if we're on DTF.ru
-if (window.location.hostname !== "dtf.ru") {
-  console.log("DTF Messenger: Not on DTF.ru, skipping initialization");
-} else {
-  console.log("DTF Messenger: Initializing on DTF.ru");
-  
+// Check if we're on DTF.ru and initialize
+if (window.location.hostname === "dtf.ru") {
   // Wait for DOM to be ready
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initializeApp, { once: true });
+    document.addEventListener("DOMContentLoaded", initializeApp, {
+      once: true,
+    });
   } else {
     initializeApp();
   }
@@ -25,18 +23,25 @@ function initializeApp() {
     // Create container for our Vue app
     const appContainer = document.createElement("div");
     appContainer.id = "dtf-messenger-root";
+    appContainer.style.cssText = `
+      position: relative;
+      z-index: 999999;
+    `;
     document.body.appendChild(appContainer);
 
     // Create Vue app
     const app = createApp(App);
     app.use(pinia);
-    
+
+    // Add error handler
+    app.config.errorHandler = (err) => {
+      console.error("DTF Messenger error:", err);
+    };
+
     // Mount app
     app.mount("#dtf-messenger-root");
-    
-    console.log("DTF Messenger: Successfully mounted Vue app");
   } catch (error) {
-    console.error("DTF Messenger: Failed to initialize app:", error);
+    console.error("DTF Messenger initialization failed:", error);
   }
 }
 
@@ -51,7 +56,9 @@ const observer = new MutationObserver(() => {
   if (window.location.href !== currentUrl) {
     currentUrl = window.location.href;
     // Small delay to ensure new content is loaded
-    setTimeout(initializeApp, 100);
+    setTimeout(() => {
+      initializeApp();
+    }, 100);
   }
 });
 

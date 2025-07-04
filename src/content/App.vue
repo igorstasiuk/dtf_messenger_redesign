@@ -1,221 +1,125 @@
 <template>
   <div id="dtf-messenger-app">
-    <!-- Chat Button in DTF Header -->
-    <ChatButton 
-      v-if="showChatButton"
-      @click="handleChatButtonClick"
-    />
-    
     <!-- Main Chat Interface -->
     <Teleport to="body">
-      <div 
-        v-if="uiStore.isChatSidebarOpen"
-        class="fixed inset-0 z-[9999] pointer-events-none"
+      <div
+        v-if="uiStore.isChannelsListOpen || uiStore.isChatSidebarOpen"
+        style="position: fixed; inset: 0; z-index: 999999; pointer-events: none"
       >
-        <!-- Backdrop for mobile -->
-        <div 
-          v-if="uiStore.isMobile && (uiStore.isChannelsListOpen || uiStore.isChatSidebarOpen)"
-          class="absolute inset-0 bg-black/50 pointer-events-auto"
-          @click="closeMobileOverlays"
-        />
-        
         <!-- Channels List -->
-        <div 
-          v-if="uiStore.canShowChannelsList && uiStore.isChannelsListOpen"
-          class="absolute top-0 left-0 h-full w-80 pointer-events-auto"
-        >
-          <ChannelsList @select-channel="handleChannelSelect" />
+        <div v-if="uiStore.isChannelsListOpen" style="pointer-events: auto">
+          <ChannelsList />
         </div>
-        
         <!-- Chat Sidebar -->
-        <div 
-          v-if="uiStore.canShowChatSidebar && uiStore.isChatSidebarOpen"
-          class="absolute top-0 right-0 h-full w-96 pointer-events-auto"
-        >
+        <div v-if="uiStore.isChatSidebarOpen" style="pointer-events: auto">
           <ChatSidebar />
         </div>
       </div>
     </Teleport>
-    
     <!-- Global Notifications -->
     <NotificationContainer />
-    
     <!-- Global Loading -->
-    <div 
-      v-if="uiStore.isGlobalLoading"
-      class="fixed inset-0 z-[10000] bg-black/20 flex items-center justify-center pointer-events-auto"
-    >
-      <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-xl">
-        <div class="flex items-center space-x-3">
-          <LoadingSpinner />
-          <span class="text-gray-700 dark:text-gray-300">
-            {{ uiStore.loadingMessage || 'Загрузка...' }}
-          </span>
+    <transition name="fade-slide">
+      <div
+        v-if="uiStore.isGlobalLoading"
+        class="fixed inset-0 z-[1000000] flex flex-col items-center justify-center bg-black/20"
+        style="pointer-events: auto"
+        role="alertdialog"
+        aria-modal="true"
+      >
+        <LoadingSpinner />
+        <div
+          v-if="uiStore.loadingMessage"
+          class="mt-4 text-white text-lg font-medium drop-shadow"
+        >
+          {{ uiStore.loadingMessage }}
         </div>
       </div>
-    </div>
+    </transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { useChannelsStore } from '@/stores/channels'
-import { useUIStore } from '@/stores/ui'
-import { useAuth } from '@/composables/useAuth'
-import { useDTFIntegration } from '@/composables/useDTFIntegration'
+import { Teleport, onMounted } from "vue";
+import { useUIStore } from "@/stores/ui";
+// import { useChannelsStore } from "@/stores/channels";
+import ChannelsList from "./components/ChannelsList.vue";
+import ChatSidebar from "./components/ChatSidebar.vue";
+import NotificationContainer from "./components/NotificationContainer.vue";
+import LoadingSpinner from "./components/LoadingSpinner.vue";
 
-// Components
-import ChatButton from './components/ChatButton.vue'
-import ChannelsList from './components/ChannelsList.vue'
-import ChatSidebar from './components/ChatSidebar.vue'
-import NotificationContainer from './components/NotificationContainer.vue'
-import LoadingSpinner from './components/LoadingSpinner.vue'
+const uiStore = useUIStore();
+// const channelsStore = useChannelsStore();
 
-// Stores
-const authStore = useAuthStore()
-const channelsStore = useChannelsStore()
-const uiStore = useUIStore()
-
-// Composables
-const { initialize: initAuth } = useAuth()
-const dtfIntegration = useDTFIntegration()
-
-// Computed
-const showChatButton = computed(() => {
-  // Only show button if we're on DTF.ru and user is authenticated
-  return window.location.hostname === 'dtf.ru' && authStore.isAuthenticated
-})
-
-// Methods
-function handleChatButtonClick() {
-  if (uiStore.isChatSidebarOpen) {
-    uiStore.setChatSidebarOpen(false)
-    uiStore.setChannelsListOpen(false)
-  } else {
-    uiStore.setChatSidebarOpen(true)
-    
-    // Auto-open channels list if no active channel
-    if (!channelsStore.activeChannelId) {
-      uiStore.setChannelsListOpen(true)
-    }
-  }
-}
-
-function handleChannelSelect(channelId: number) {
-  channelsStore.setActiveChannel(channelId)
-  
-  // On mobile, close channels list and ensure chat sidebar is open
-  if (uiStore.isMobile) {
-    uiStore.setChannelsListOpen(false)
-    uiStore.setChatSidebarOpen(true)
-  }
-}
-
-function closeMobileOverlays() {
-  if (uiStore.isMobile) {
-    uiStore.setChannelsListOpen(false)
-    uiStore.setChatSidebarOpen(false)
-  }
-}
-
-// Initialize DTF Messenger Button in Header
 function injectChatButton() {
-  // Use the improved DTF integration
-  dtfIntegration.injectChatButton()
-}
+  // Remove existing injected button
+  const existing = document.querySelector(".dtf-messenger-chat-button");
+  if (existing) existing.remove();
 
-// Initialize extension
-async function initialize() {
-  console.log('DTF Messenger: Initializing...')
-  
-  try {
-    // Initialize UI store
-    uiStore.initialize()
-    
-    // Initialize authentication
-    await initAuth()
-    
-    // Wait for DOM to be ready
-    if (document.readyState === 'loading') {
-      await new Promise(resolve => {
-        document.addEventListener('DOMContentLoaded', resolve, { once: true })
-      })
-    }
-    
-    // Inject chat button into DTF header
-    injectChatButton()
-    
-    // Initialize channels if authenticated
-    if (authStore.isAuthenticated) {
-      channelsStore.initialize()
-    }
-    
-    console.log('DTF Messenger: Successfully initialized')
-  } catch (error) {
-    console.error('DTF Messenger: Initialization failed:', error)
-    uiStore.setGlobalError('Ошибка инициализации DTF Messenger')
+  // Find the header right container using correct DTF.ru selectors
+  const selectors = [
+    ".header__right",
+    ".header .header__right",
+    ".header__layout .header__right",
+  ];
+  let headerRight = null;
+  for (const selector of selectors) {
+    headerRight = document.querySelector(selector);
+    if (headerRight) break;
   }
-}
+  if (!headerRight) return false;
 
-// Lifecycle
-onMounted(initialize)
-
-onUnmounted(() => {
-  // Cleanup
-  authStore.destroy()
-  channelsStore.destroy()
-  uiStore.destroy()
-})
-
-// Handle page navigation (SPA support)
-let currentUrl = window.location.href
-
-function handleUrlChange() {
-  if (window.location.href !== currentUrl) {
-    currentUrl = window.location.href
-    
-    // Re-inject button if needed
-    setTimeout(() => {
-      const existingContainer = document.getElementById('dtf-messenger-button-container')
-      if (!existingContainer) {
-        injectChatButton()
-      }
-    }, 1000)
+  // Create chat button HTML
+  const chatButton = document.createElement("div");
+  chatButton.className = "dtf-messenger-chat-button";
+  chatButton.style.cssText = `
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    cursor: pointer;
+  `;
+  chatButton.innerHTML = `
+    <button type="button" class="button button--size-l button--type-transparent button--icon-only button--circle" 
+            style="position: relative;" 
+            title="DTF Messenger">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 12H8.01M12 12H12.01M16 12H16.01M21 12C21 16.418 16.761 20 11.5 20C10.454 20 9.448 19.848 8.5 19.571L3 21L4.429 15.5C4.152 14.552 4 13.546 4 12.5C4 8.082 8.239 4.5 13.5 4.5C18.761 4.5 23 8.082 23 12.5Z" 
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  `;
+  chatButton.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    uiStore.setChannelsListOpen(true);
+  });
+  // Insert before search or at the end
+  const searchElement = headerRight.querySelector(".search");
+  if (searchElement) {
+    headerRight.insertBefore(chatButton, searchElement);
+  } else {
+    headerRight.appendChild(chatButton);
   }
+  return true;
 }
 
-// Listen for navigation changes
-const observer = new MutationObserver(handleUrlChange)
-observer.observe(document.body, { childList: true, subtree: true })
-
-onUnmounted(() => {
-  observer.disconnect()
-})
+onMounted(() => {
+  setTimeout(() => {
+    injectChatButton();
+  }, 1000);
+  // SPA: re-inject on DOM mutations
+  let debounceTimer: number | null = null;
+  const observer = new MutationObserver(() => {
+    const hasButton = document.querySelector(".dtf-messenger-chat-button");
+    const hasHeader = document.querySelector(".header__right");
+    if (hasHeader && !hasButton) {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = window.setTimeout(() => {
+        injectChatButton();
+        debounceTimer = null;
+      }, 1000);
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+});
 </script>
-
-<style scoped>
-/* DTF-specific styling */
-.dtf-messenger-button-container {
-  display: inline-flex;
-  align-items: center;
-  margin-right: 8px;
-}
-
-/* Ensure our overlays appear above DTF content */
-#dtf-messenger-app {
-  position: relative;
-  z-index: 9999;
-}
-
-/* Mobile responsive adjustments */
-@media (max-width: 768px) {
-  .w-80 {
-    width: 100vw;
-  }
-  
-  .w-96 {
-    width: 100vw;
-  }
-}
-</style>

@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ref, computed, readonly } from "vue";
 import { dtfAPI } from "@/utils/api";
 import type { Channel } from "@/types/api";
-import { useAuthStore } from './auth';
+import { useAuthStore } from "./auth";
 
 export const useChannelsStore = defineStore("channels", () => {
   // State
@@ -16,7 +16,10 @@ export const useChannelsStore = defineStore("channels", () => {
   // Computed
   const activeChannel = computed(() => {
     if (!activeChannelId.value) return null;
-    return channels.value.find(channel => channel.id === activeChannelId.value) || null;
+    return (
+      channels.value.find((channel) => channel.id === activeChannelId.value) ||
+      null
+    );
   });
 
   const sortedChannels = computed(() => {
@@ -24,17 +27,20 @@ export const useChannelsStore = defineStore("channels", () => {
       // Sort by last message time, then by unread count
       const aTime = a.lastMessage?.dtCreated || 0;
       const bTime = b.lastMessage?.dtCreated || 0;
-      
+
       if (aTime !== bTime) {
         return bTime - aTime; // Most recent first
       }
-      
+
       return b.unreadCount - a.unreadCount; // More unread first
     });
   });
 
   const totalUnreadCount = computed(() => {
-    return channels.value.reduce((total, channel) => total + channel.unreadCount, 0);
+    return channels.value.reduce(
+      (total, channel) => total + channel.unreadCount,
+      0
+    );
   });
 
   const hasUnreadMessages = computed(() => {
@@ -49,20 +55,20 @@ export const useChannelsStore = defineStore("channels", () => {
   }
 
   function addChannel(channel: Channel) {
-    const existingIndex = channels.value.findIndex(c => c.id === channel.id);
-    
+    const existingIndex = channels.value.findIndex((c) => c.id === channel.id);
+
     if (existingIndex >= 0) {
       channels.value[existingIndex] = channel;
     } else {
       channels.value.unshift(channel);
     }
-    
+
     updateUnreadTotal();
   }
 
   function updateChannel(channelId: number, updates: Partial<Channel>) {
-    const index = channels.value.findIndex(c => c.id === channelId);
-    
+    const index = channels.value.findIndex((c) => c.id === channelId);
+
     if (index >= 0) {
       channels.value[index] = { ...channels.value[index], ...updates };
       updateUnreadTotal();
@@ -70,22 +76,22 @@ export const useChannelsStore = defineStore("channels", () => {
   }
 
   function removeChannel(channelId: number) {
-    const index = channels.value.findIndex(c => c.id === channelId);
-    
+    const index = channels.value.findIndex((c) => c.id === channelId);
+
     if (index >= 0) {
       channels.value.splice(index, 1);
-      
+
       if (activeChannelId.value === channelId) {
         activeChannelId.value = null;
       }
-      
+
       updateUnreadTotal();
     }
   }
 
   function setActiveChannel(channelId: number | null) {
     activeChannelId.value = channelId;
-    
+
     // Mark active channel as read
     if (channelId) {
       markChannelAsRead(channelId);
@@ -122,9 +128,9 @@ export const useChannelsStore = defineStore("channels", () => {
   // API Actions
   async function fetchChannels() {
     const authStore = useAuthStore();
-    
+
     if (!authStore.isAuthenticated) {
-      setError('Not authenticated');
+      setError("Not authenticated");
       return false;
     }
 
@@ -133,19 +139,18 @@ export const useChannelsStore = defineStore("channels", () => {
 
     try {
       const response = await dtfAPI.getChannels();
-      
+
       if (response.success && response.result) {
         setChannels(response.result.channels);
-        console.log(`Loaded ${response.result.channels.length} channels`);
         return true;
       } else {
-        setError(response.error?.message || 'Failed to load channels');
+        setError(response.error?.message || "Failed to load channels");
         return false;
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       setError(errorMessage);
-      console.error('Failed to load channels:', error);
       return false;
     } finally {
       setLoading(false);
@@ -154,36 +159,36 @@ export const useChannelsStore = defineStore("channels", () => {
 
   async function fetchChannel(channelId: number) {
     const authStore = useAuthStore();
-    
+
     if (!authStore.isAuthenticated) {
-      setError('Not authenticated');
+      setError("Not authenticated");
       return null;
     }
 
     try {
       const response = await dtfAPI.getChannel(channelId);
-      
+
       if (response.success && response.result) {
         const channel = response.result.channel;
         addChannel(channel);
         return channel;
       } else {
-        setError(response.error?.message || 'Failed to load channel');
+        setError(response.error?.message || "Failed to load channel");
         return null;
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       setError(errorMessage);
-      console.error('Failed to load channel:', error);
       return null;
     }
   }
 
   async function createChannelWithUser(userId: number) {
     const authStore = useAuthStore();
-    
+
     if (!authStore.isAuthenticated) {
-      setError('Not authenticated');
+      setError("Not authenticated");
       return null;
     }
 
@@ -192,32 +197,34 @@ export const useChannelsStore = defineStore("channels", () => {
 
     try {
       const response = await dtfAPI.getOrCreateChannelWithUser(userId);
-      
+
       if (response.success && response.result) {
         const channel = response.result.channel;
         addChannel(channel);
         setActiveChannel(channel.id);
-        console.log(`Created/found channel with user ${userId}`);
         return channel;
       } else {
-        setError(response.error?.message || 'Failed to create channel');
+        setError(response.error?.message || "Failed to create channel");
         return null;
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       setError(errorMessage);
-      console.error('Failed to create channel:', error);
       return null;
     } finally {
       setLoading(false);
     }
   }
 
-  async function createChannel(data: { name: string; type: 'group' | 'direct' }) {
+  async function createChannel(data: {
+    name: string;
+    type: "group" | "direct";
+  }) {
     const authStore = useAuthStore();
-    
+
     if (!authStore.isAuthenticated) {
-      setError('Not authenticated');
+      setError("Not authenticated");
       return null;
     }
 
@@ -229,22 +236,21 @@ export const useChannelsStore = defineStore("channels", () => {
       const mockChannel: Channel = {
         id: Date.now(), // temporary ID
         title: data.name,
-        picture: '',
+        picture: "",
         lastMessage: undefined,
         unreadCount: 0,
-        type: data.type === 'group' ? 'group' : 'private',
+        type: data.type === "group" ? "group" : "private",
         members: [],
-        isActive: false
+        isActive: false,
       };
 
       addChannel(mockChannel);
       setActiveChannel(mockChannel.id);
-      console.log(`Created channel: ${data.name}`);
       return mockChannel;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       setError(errorMessage);
-      console.error('Failed to create channel:', error);
       return null;
     } finally {
       setLoading(false);
@@ -253,11 +259,11 @@ export const useChannelsStore = defineStore("channels", () => {
 
   // Utility Functions
   function getChannelById(channelId: number): Channel | null {
-    return channels.value.find(c => c.id === channelId) || null;
+    return channels.value.find((c) => c.id === channelId) || null;
   }
 
   function findChannelByUserId(userId: number): Channel | null {
-    return channels.value.find(c => c.id === userId) || null;
+    return channels.value.find((c) => c.id === userId) || null;
   }
 
   function isChannelActive(channelId: number): boolean {
@@ -267,11 +273,12 @@ export const useChannelsStore = defineStore("channels", () => {
   // Auto-refresh channels periodically
   let refreshInterval: number | null = null;
 
-  function startAutoRefresh(intervalMs = 60000) { // 1 minute
+  function startAutoRefresh(intervalMs = 60000) {
+    // 1 minute
     if (refreshInterval) {
       stopAutoRefresh();
     }
-    
+
     refreshInterval = window.setInterval(() => {
       if (useAuthStore().isAuthenticated) {
         fetchChannels();
@@ -293,7 +300,7 @@ export const useChannelsStore = defineStore("channels", () => {
     if (authStore.isAuthenticated) {
       fetchChannels();
     }
-    
+
     // Start auto-refresh
     startAutoRefresh();
   }
@@ -312,13 +319,13 @@ export const useChannelsStore = defineStore("channels", () => {
     error: readonly(error),
     lastFetch: readonly(lastFetch),
     unreadTotal: readonly(unreadTotal),
-    
+
     // Computed
     activeChannel,
     sortedChannels,
     totalUnreadCount,
     hasUnreadMessages,
-    
+
     // Actions
     setChannels,
     addChannel,
@@ -330,13 +337,13 @@ export const useChannelsStore = defineStore("channels", () => {
     setLoading,
     setError,
     clearChannels,
-    
+
     // API Actions
     fetchChannels,
     fetchChannel,
     createChannelWithUser,
     createChannel,
-    
+
     // Utilities
     getChannelById,
     findChannelByUserId,
@@ -344,6 +351,6 @@ export const useChannelsStore = defineStore("channels", () => {
     startAutoRefresh,
     stopAutoRefresh,
     initialize,
-    destroy
+    destroy,
   };
 });

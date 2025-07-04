@@ -108,66 +108,95 @@ async function updateSettings(newSettings: Record<string, any>) {
 }
 
 // Handle notification clicks
-chrome.notifications.onClicked.addListener(async (notificationId) => {
-  // Focus or create DTF.ru tab
-  const tabs = await chrome.tabs.query({ url: "https://dtf.ru/*" });
+if (chrome.notifications && chrome.notifications.onClicked) {
+  chrome.notifications.onClicked.addListener(async (notificationId) => {
+    try {
+      // Focus or create DTF.ru tab
+      const tabs = await chrome.tabs.query({ url: "https://dtf.ru/*" });
 
-  if (tabs.length > 0) {
-    // Focus existing DTF.ru tab
-    await chrome.tabs.update(tabs[0].id!, { active: true });
-    await chrome.windows.update(tabs[0].windowId!, { focused: true });
-  } else {
-    // Create new DTF.ru tab
-    await chrome.tabs.create({ url: "https://dtf.ru" });
-  }
+      if (tabs.length > 0) {
+        // Focus existing DTF.ru tab
+        await chrome.tabs.update(tabs[0].id!, { active: true });
+        await chrome.windows.update(tabs[0].windowId!, { focused: true });
+      } else {
+        // Create new DTF.ru tab
+        await chrome.tabs.create({ url: "https://dtf.ru" });
+      }
 
-  // Clear the notification
-  chrome.notifications.clear(notificationId);
-});
+      // Clear the notification
+      chrome.notifications.clear(notificationId);
+    } catch (error) {
+      console.warn("Failed to handle notification click:", error);
+    }
+  });
+}
 
 // Handle tab updates to inject content script on DTF.ru
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === "complete" && tab.url?.includes("dtf.ru")) {
-    // Inject content script if not already injected
-    chrome.scripting
-      .executeScript({
-        target: { tabId },
-        files: ["content/main.js"],
-      })
-      .catch(() => {
-        // Content script already injected or injection failed
-        // This is expected behavior, so we silently catch the error
-      });
-  }
-});
+if (chrome.tabs && chrome.tabs.onUpdated && chrome.scripting) {
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === "complete" && tab.url?.includes("dtf.ru")) {
+      // Inject content script if not already injected
+      chrome.scripting
+        .executeScript({
+          target: { tabId },
+          files: ["content.js"],
+        })
+        .catch(() => {
+          // Content script already injected or injection failed
+          // This is expected behavior, so we silently catch the error
+        });
+    }
+  });
+}
 
 // Periodic tasks (check for new messages, etc.)
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === "checkMessages") {
-    // This would typically send a message to content scripts to check for new messages
-    const tabs = await chrome.tabs.query({ url: "https://dtf.ru/*" });
+if (chrome.alarms && chrome.alarms.onAlarm) {
+  chrome.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm.name === "checkMessages") {
+      // This would typically send a message to content scripts to check for new messages
+      try {
+        const tabs = await chrome.tabs.query({ url: "https://dtf.ru/*" });
 
-    tabs.forEach((tab) => {
-      if (tab.id) {
-        chrome.tabs.sendMessage(tab.id, { type: "CHECK_NEW_MESSAGES" });
+        tabs.forEach((tab) => {
+          if (tab.id) {
+            chrome.tabs
+              .sendMessage(tab.id, { type: "CHECK_NEW_MESSAGES" })
+              .catch(() => {
+                // Ignore errors if tab is closed or content script not ready
+              });
+          }
+        });
+      } catch (error) {
+        console.warn("Failed to check messages:", error);
       }
-    });
-  }
-});
+    }
+  });
 
-// Setup periodic message checking
-chrome.alarms.create("checkMessages", { periodInMinutes: 1 });
+  // Setup periodic message checking
+  chrome.alarms.create("checkMessages", { periodInMinutes: 1 });
+}
 
 // Handle extension icon click
-chrome.action.onClicked.addListener(async (tab) => {
-  if (tab.url?.includes("dtf.ru")) {
-    // Send message to content script to toggle chat
-    chrome.tabs.sendMessage(tab.id!, { type: "TOGGLE_CHAT" });
-  } else {
-    // Navigate to DTF.ru
-    chrome.tabs.update({ url: "https://dtf.ru" });
-  }
-});
+if (chrome.action && chrome.action.onClicked) {
+  chrome.action.onClicked.addListener(async (tab) => {
+    try {
+      if (tab.url?.includes("dtf.ru")) {
+        // Send message to content script to toggle chat
+        if (tab.id) {
+          chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_CHAT" }).catch(() => {
+            // Content script might not be ready
+            console.warn("Failed to send toggle message to content script");
+          });
+        }
+      } else {
+        // Navigate to DTF.ru
+        chrome.tabs.update({ url: "https://dtf.ru" });
+      }
+    } catch (error) {
+      console.warn("Failed to handle action click:", error);
+    }
+  });
+}
 
 // Export types for TypeScript
 export interface NotificationData {

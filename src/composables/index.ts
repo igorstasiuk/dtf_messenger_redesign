@@ -6,11 +6,6 @@ export { useMessages } from "./useMessages";
 export { useNotifications } from "./useNotifications";
 export { useTheme } from "./useTheme";
 
-// Additional utility composables
-export { useDTFIntegration } from "./useDTFIntegration";
-export { useKeyboardShortcuts } from "./useKeyboardShortcuts";
-export { useDebounce } from "./useDebounce";
-
 // Re-export commonly used VueUse composables for convenience
 export {
   useLocalStorage,

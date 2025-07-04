@@ -10,9 +10,9 @@ import type {
   GetChannelsResponse,
   GetMessagesResponse,
   SendMessageResponse,
-  MessagesCounterResponse
+  MessagesCounterResponse,
 } from "@/types/api";
-import { getCurrentTimestamp } from './date'
+import { getCurrentTimestamp } from "./date";
 
 /**
  * DTF Messenger API Service
@@ -55,7 +55,7 @@ export class DTFMessengerAPI {
    */
   private getAuthHeaders(): HeadersInit {
     const headers: HeadersInit = {
-      "Accept": "application/json"
+      Accept: "application/json",
     };
 
     if (this.accessToken) {
@@ -73,12 +73,15 @@ export class DTFMessengerAPI {
     options: RequestInit = {}
   ): Promise<APIResponse<T>> {
     try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
+      const url = `${this.baseURL}${endpoint}`;
+      const headers = {
+        ...this.getAuthHeaders(),
+        ...options.headers,
+      };
+
+      const response = await fetch(url, {
         ...options,
-        headers: {
-          ...this.getAuthHeaders(),
-          ...options.headers
-        }
+        headers,
       });
 
       const data = await response.json();
@@ -86,18 +89,22 @@ export class DTFMessengerAPI {
       return {
         success: response.ok,
         result: data.result,
-        error: data.error || (!response.ok ? {
-          code: response.status,
-          message: response.statusText
-        } : undefined)
+        error:
+          data.error ||
+          (!response.ok
+            ? {
+                code: response.status,
+                message: response.statusText,
+              }
+            : undefined),
       };
     } catch (error) {
       return {
         success: false,
         error: {
           code: 0,
-          message: error instanceof Error ? error.message : 'Network error'
-        }
+          message: error instanceof Error ? error.message : "Network error",
+        },
       };
     }
   }
@@ -108,14 +115,14 @@ export class DTFMessengerAPI {
    * Check if user is authenticated (health check)
    */
   async checkAuthentication(): Promise<APIResponse<HealthCheckResponse>> {
-    return this.makeRequest<HealthCheckResponse>('/health');
+    return this.makeRequest<HealthCheckResponse>("/health");
   }
 
   /**
    * Get current user profile
    */
   async getUserProfile(): Promise<APIResponse<AuthUser>> {
-    return this.makeRequest<AuthUser>('/user/me');
+    return this.makeRequest<AuthUser>("/user/me");
   }
 
   // ==================== Channel Methods ====================
@@ -125,45 +132,51 @@ export class DTFMessengerAPI {
    * Based on api__channels() from tampermonkey script
    */
   async getChannels(): Promise<APIResponse<GetChannelsResponse>> {
-    return this.makeRequest<GetChannelsResponse>('/m/channels');
+    return this.makeRequest<GetChannelsResponse>("/m/channels");
   }
 
   /**
    * Get specific channel information
    * Based on api__channel() from tampermonkey script
    */
-  async getChannel(channelId: number): Promise<APIResponse<{ channel: Channel }>> {
+  async getChannel(
+    channelId: number
+  ): Promise<APIResponse<{ channel: Channel }>> {
     return this.makeRequest<{ channel: Channel }>(`/m/channel?id=${channelId}`);
   }
 
   /**
    * Create new channel with user
    */
-  async createChannel(userId: number): Promise<APIResponse<{ channel: Channel }>> {
+  async createChannel(
+    userId: number
+  ): Promise<APIResponse<{ channel: Channel }>> {
     const formData = new FormData();
-    formData.append('userId', userId.toString());
+    formData.append("userId", userId.toString());
 
-    return this.makeRequest<{ channel: Channel }>('/m/create', {
-      method: 'POST',
-      body: formData
+    return this.makeRequest<{ channel: Channel }>("/m/create", {
+      method: "POST",
+      body: formData,
     });
   }
 
   /**
    * Get or create channel with specific user (for profile button)
    */
-  async getOrCreateChannelWithUser(userId: number): Promise<APIResponse<{ channel: Channel }>> {
+  async getOrCreateChannelWithUser(
+    userId: number
+  ): Promise<APIResponse<{ channel: Channel }>> {
     // First try to find existing channel
     const channelsResponse = await this.getChannels();
     if (channelsResponse.success && channelsResponse.result) {
       const existingChannel = channelsResponse.result.channels.find(
-        channel => channel.id === userId
+        (channel) => channel.id === userId
       );
-      
+
       if (existingChannel) {
         return {
           success: true,
-          result: { channel: existingChannel }
+          result: { channel: existingChannel },
         };
       }
     }
@@ -178,14 +191,16 @@ export class DTFMessengerAPI {
    * Get messages for a channel
    * Based on api__messages() from tampermonkey script
    */
-  async getMessages(params: GetMessagesParams): Promise<APIResponse<GetMessagesResponse>> {
+  async getMessages(
+    params: GetMessagesParams
+  ): Promise<APIResponse<GetMessagesResponse>> {
     const { channelId, beforeTime, limit = 50 } = params;
     let url = `/m/messages?channelId=${channelId}`;
-    
+
     if (beforeTime) {
       url += `&beforeTime=${beforeTime}`;
     }
-    
+
     if (limit) {
       url += `&limit=${limit}`;
     }
@@ -197,33 +212,38 @@ export class DTFMessengerAPI {
    * Send message to channel
    * Based on api__message_send() from tampermonkey script
    */
-  async sendMessage(params: SendMessageRequest): Promise<APIResponse<SendMessageResponse>> {
+  async sendMessage(
+    params: SendMessageRequest
+  ): Promise<APIResponse<SendMessageResponse>> {
     const { channelId, text, media = [], ts, idTmp } = params;
-    
-    const formData = new FormData();
-    formData.append('channelId', channelId.toString());
-    formData.append('text', text);
-    formData.append('ts', (ts || getCurrentTimestamp()).toString());
-    formData.append('idTmp', (idTmp || getCurrentTimestamp()).toString());
-    formData.append('media', JSON.stringify(media));
 
-    return this.makeRequest<SendMessageResponse>('/m/send', {
-      method: 'POST',
-      body: formData
+    const formData = new FormData();
+    formData.append("channelId", channelId.toString());
+    formData.append("text", text);
+    formData.append("ts", (ts || getCurrentTimestamp()).toString());
+    formData.append("idTmp", (idTmp || getCurrentTimestamp()).toString());
+    formData.append("media", JSON.stringify(media));
+
+    return this.makeRequest<SendMessageResponse>("/m/send", {
+      method: "POST",
+      body: formData,
     });
   }
 
   /**
    * Mark messages as read
    */
-  async markAsRead(channelId: number, messageIds: number[]): Promise<APIResponse<void>> {
+  async markAsRead(
+    channelId: number,
+    messageIds: number[]
+  ): Promise<APIResponse<void>> {
     const formData = new FormData();
-    formData.append('channelId', channelId.toString());
-    formData.append('messageIds', JSON.stringify(messageIds));
+    formData.append("channelId", channelId.toString());
+    formData.append("messageIds", JSON.stringify(messageIds));
 
-    return this.makeRequest<void>('/m/read', {
-      method: 'POST',
-      body: formData
+    return this.makeRequest<void>("/m/read", {
+      method: "POST",
+      body: formData,
     });
   }
 
@@ -235,11 +255,11 @@ export class DTFMessengerAPI {
    */
   async uploadFile(file: File): Promise<APIResponse<MediaFile>> {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
 
-    return this.makeRequest<MediaFile>('/uploader/upload', {
-      method: 'POST',
-      body: formData
+    return this.makeRequest<MediaFile>("/uploader/upload", {
+      method: "POST",
+      body: formData,
     });
   }
 
@@ -250,7 +270,7 @@ export class DTFMessengerAPI {
    * Based on api__messages_counter() from tampermonkey script
    */
   async getMessagesCounter(): Promise<APIResponse<MessagesCounterResponse>> {
-    return this.makeRequest<MessagesCounterResponse>('/m/counter');
+    return this.makeRequest<MessagesCounterResponse>("/m/counter");
   }
 
   // ==================== User Methods ====================
@@ -258,8 +278,13 @@ export class DTFMessengerAPI {
   /**
    * Search users by query
    */
-  async searchUsers(query: string, limit = 10): Promise<APIResponse<{ users: AuthUser[] }>> {
-    return this.makeRequest<{ users: AuthUser[] }>(`/users/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  async searchUsers(
+    query: string,
+    limit = 10
+  ): Promise<APIResponse<{ users: AuthUser[] }>> {
+    return this.makeRequest<{ users: AuthUser[] }>(
+      `/users/search?q=${encodeURIComponent(query)}&limit=${limit}`
+    );
   }
 
   // ==================== DTF.ru Integration Methods ====================
@@ -269,25 +294,30 @@ export class DTFMessengerAPI {
    * Based on profile button logic from tampermonkey script
    */
   static getUserIdFromProfile(): number | null {
-    const urlParts = window.location.href.replace('https://dtf.ru/u/', '').split('-');
+    const urlParts = window.location.href
+      .replace("https://dtf.ru/u/", "")
+      .split("-");
     const userId = urlParts[0];
-    
+
     if (Number.isInteger(Number(userId))) {
       return Number(userId);
     }
-    
+
     return null;
   }
 
   /**
    * Extract media from message content (for rendering)
    */
-  static extractMediaFromContent(content: string): { text: string; media: MediaFile[] } {
+  static extractMediaFromContent(content: string): {
+    text: string;
+    media: MediaFile[];
+  } {
     // This would parse content and extract media URLs
     // For now, return as-is
     return {
       text: content,
-      media: []
+      media: [],
     };
   }
 
@@ -295,26 +325,26 @@ export class DTFMessengerAPI {
    * Format message content for display
    */
   static formatMessageContent(message: Message): string {
-    let content = message.text || '';
-    
+    let content = message.text || "";
+
     // Escape HTML to prevent XSS (like in tampermonkey script)
-    content = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    
+    content = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
     return content;
   }
 
   /**
    * Get media preview URL
    */
-  static getMediaPreviewUrl(media: MediaFile, size = '100x'): string {
-    if (media.type === 'image' && media.data.type !== 'gif') {
+  static getMediaPreviewUrl(media: MediaFile, size = "100x"): string {
+    if (media.type === "image" && media.data.type !== "gif") {
       return `https://leonardo.osnova.io/${media.data.uuid}/-/preview/${size}/`;
     }
-    
-    if (media.type === 'video' || media.data.type === 'gif') {
+
+    if (media.type === "video" || media.data.type === "gif") {
       return `https://leonardo.osnova.io/${media.data.uuid}/-/format/mp4#t=0.1`;
     }
-    
+
     return `https://leonardo.osnova.io/${media.data.uuid}/`;
   }
 
@@ -331,14 +361,14 @@ export class DTFMessengerAPI {
    * Health check endpoint
    */
   async healthCheck(): Promise<APIResponse<HealthCheckResponse>> {
-    return this.makeRequest<HealthCheckResponse>('/health');
+    return this.makeRequest<HealthCheckResponse>("/health");
   }
 
   /**
    * Get API version
    */
   getAPIVersion(): string {
-    return 'v2.5';
+    return "v2.5";
   }
 }
 
