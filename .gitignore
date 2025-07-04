@@ -17,6 +17,7 @@ dist
 dist-ssr
 *.local
 build/
+dtf-messenger-extension.zip
 
 # Environment variables
 .env
