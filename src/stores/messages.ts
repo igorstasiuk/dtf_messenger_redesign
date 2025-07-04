@@ -238,7 +238,7 @@ export const useMessagesStore = defineStore("messages", () => {
     setError(null);
 
     try {
-      let uploadedMedia: any[] = [];
+      const uploadedMedia: any[] = [];
 
       if (media.length > 0) {
         isUploading.value = true;

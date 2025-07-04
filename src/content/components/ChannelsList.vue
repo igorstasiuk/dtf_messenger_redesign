@@ -67,8 +67,8 @@
           <button
             type="button"
             class="channels-list__create-btn"
-            @click="showCreateChannelDialog = true"
             :disabled="isCreatingChannel"
+            @click="showCreateChannelDialog = true"
           >
             <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
               <path

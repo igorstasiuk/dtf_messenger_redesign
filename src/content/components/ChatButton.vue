@@ -4,8 +4,8 @@
       type="button"
       class="chat-button"
       :class="{ 'chat-button--active': isActive }"
-      @click="handleClick"
       :title="tooltipText"
+      @click="handleClick"
     >
       <!-- Chat Icon -->
       <svg

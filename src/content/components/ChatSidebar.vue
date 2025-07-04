@@ -73,7 +73,7 @@
           </div>
 
           <!-- Messages -->
-          <div v-else class="chat-sidebar__messages" ref="messagesContainer">
+          <div v-else ref="messagesContainer" class="chat-sidebar__messages">
             <div
               v-for="message in messages"
               :key="message.id"
@@ -187,8 +187,8 @@
           </button>
 
           <textarea
-            v-model="messageText"
             ref="messageInput"
+            v-model="messageText"
             rows="1"
             placeholder="Написать сообщение..."
             class="chat-sidebar__input-field"
