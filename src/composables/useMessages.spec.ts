@@ -66,6 +66,8 @@ describe("useMessages", () => {
   });
 
   it("should add typing user", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1751625756519);
     const store = useMessagesStore();
     store.addTypingUser = vi.fn();
     const messages = useMessages();
@@ -81,5 +83,6 @@ describe("useMessages", () => {
       avatar: "",
       startedAt: Date.now(),
     });
+    vi.useRealTimers();
   });
 });
