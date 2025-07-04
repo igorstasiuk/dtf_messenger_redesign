@@ -1,6 +1,6 @@
 {
   "name": "dtf-messenger-extension",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "DTF Messenger Chrome Extension - Chat functionality for DTF.ru",
   "type": "module",
   "scripts": {
