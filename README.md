@@ -1,6 +1,6 @@
 # DTF Messenger Chrome Extension
 
-![Release](https://github.com/hikari/dtf_messenger_redesign/actions/workflows/release.yml/badge.svg)
+![Release](https://github.com/igorstasiuk/dtf_messenger_redesign/actions/workflows/release.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/hikari/dtf_messenger_redesign/pulls)
 
