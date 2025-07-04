@@ -40,16 +40,16 @@ export function useMessages(channelId?: number) {
 
     try {
       const success = await messagesStore.fetchMessages(channelId, beforeTime);
-      
+
       if (success && !beforeTime) {
         // Mark channel as active and read
         channelsStore.setActiveChannel(channelId);
         await markAsRead();
       }
-      
+
       return success;
     } catch (error) {
-      console.error('DTF Messenger: Error loading messages:', error);
+      console.error("DTF Messenger: Error loading messages:", error);
       return false;
     }
   }
@@ -74,25 +74,25 @@ export function useMessages(channelId?: number) {
       const message = await messagesStore.sendMessage({
         channelId: currentChannelId.value,
         text,
-        media: files
+        media: files,
       });
-      
+
       if (message) {
         // Scroll to bottom after sending
         await nextTick();
         scrollToBottom();
-        
+
         // Update channel last activity
         if (channelsStore.activeChannel) {
           channelsStore.updateChannel(currentChannelId.value, {
-            lastMessage: message
+            lastMessage: message,
           });
         }
       }
-      
+
       return message;
     } catch (error) {
-      console.error('DTF Messenger: Error sending message:', error);
+      console.error("DTF Messenger: Error sending message:", error);
       return null;
     }
   }
@@ -103,7 +103,7 @@ export function useMessages(channelId?: number) {
     try {
       await messagesStore.markChannelAsRead(currentChannelId.value);
     } catch (error) {
-      console.error('DTF Messenger: Error marking messages as read:', error);
+      console.error("DTF Messenger: Error marking messages as read:", error);
     }
   }
 
@@ -120,7 +120,12 @@ export function useMessages(channelId?: number) {
   }
 
   // Typing indicators
-  function addTypingUser(user: any) {
+  function addTypingUser(user: {
+    id: number;
+    name: string;
+    avatar: string;
+    startedAt: number;
+  }) {
     messagesStore.addTypingUser(user);
   }
 
@@ -134,12 +139,12 @@ export function useMessages(channelId?: number) {
   }
 
   function scrollToBottom() {
-    setScrollPosition(0)
+    setScrollPosition(0);
   }
 
   function shouldAutoScroll(): boolean {
     // Auto-scroll if user is near the bottom (within 100px)
-    return messagesStore.scrollPosition <= 100
+    return messagesStore.scrollPosition <= 100;
   }
 
   // Intersection Observer for lazy loading
@@ -150,7 +155,7 @@ export function useMessages(channelId?: number) {
       (entries) => {
         const entry = entries[0];
         isIntersecting.value = entry.isIntersecting;
-        
+
         // Load more messages when scrolling to top
         if (entry.isIntersecting && hasMoreMessages.value && !isLoading.value) {
           loadMoreMessages();
@@ -158,13 +163,13 @@ export function useMessages(channelId?: number) {
       },
       {
         root: null,
-        rootMargin: '100px',
-        threshold: 0.1
+        rootMargin: "100px",
+        threshold: 0.1,
       }
     );
 
     observer.observe(element);
-    
+
     return () => observer.disconnect();
   }
 
@@ -203,15 +208,15 @@ export function useMessages(channelId?: number) {
 
   // Utility functions
   function getMessageById(messageId: number) {
-    return messages.value.find(m => m.id === messageId) || null
+    return messages.value.find((m) => m.id === messageId) || null;
   }
 
   function getMessagesByAuthor(authorId: number) {
-    return messages.value.filter(m => m.author.id === authorId)
+    return messages.value.filter((m) => m.author.id === authorId);
   }
 
   function getLatestMessages(count = 10) {
-    return messages.value.slice(-count)
+    return messages.value.slice(-count);
   }
 
   // Refresh messages
@@ -267,6 +272,6 @@ export function useMessages(channelId?: number) {
     // Utilities
     getMessageById,
     getMessagesByAuthor,
-    getLatestMessages
+    getLatestMessages,
   };
 }

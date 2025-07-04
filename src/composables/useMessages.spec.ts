@@ -69,7 +69,17 @@ describe("useMessages", () => {
     const store = useMessagesStore();
     store.addTypingUser = vi.fn();
     const messages = useMessages();
-    messages.addTypingUser({ id: 1, name: "A" });
-    expect(store.addTypingUser).toHaveBeenCalledWith({ id: 1, name: "A" });
+    messages.addTypingUser({
+      id: 1,
+      name: "A",
+      avatar: "",
+      startedAt: Date.now(),
+    });
+    expect(store.addTypingUser).toHaveBeenCalledWith({
+      id: 1,
+      name: "A",
+      avatar: "",
+      startedAt: Date.now(),
+    });
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useAPI } from "./useAPI";
 import { dtfAPI } from "@/utils/api";
+import type { Mock } from "vitest";
 
 const uiStoreMock = { setGlobalLoading: vi.fn(), addNotification: vi.fn() };
 
@@ -30,7 +31,7 @@ describe("useAPI", () => {
   it("should call dtfAPI.getChannels and return result", async () => {
     const { channelsAPI } = useAPI();
     const mockResult = [{ id: 1, title: "Test", picture: "", unreadCount: 0 }];
-    (dtfAPI.getChannels as any).mockResolvedValue({
+    (dtfAPI.getChannels as unknown as Mock).mockResolvedValue({
       success: true,
       result: mockResult,
     });
@@ -41,7 +42,7 @@ describe("useAPI", () => {
 
   it("should handle API error and call addNotification", async () => {
     const { channelsAPI } = useAPI();
-    (dtfAPI.getChannels as any).mockResolvedValue({
+    (dtfAPI.getChannels as unknown as Mock).mockResolvedValue({
       success: false,
       error: { code: 500, message: "fail" },
     });
@@ -54,8 +55,8 @@ describe("useAPI", () => {
 
   it("should set isLoading during request", async () => {
     const { channelsAPI, isLoading } = useAPI();
-    let resolve: any = undefined;
-    (dtfAPI.getChannels as any).mockReturnValue(
+    let resolve: ((value: unknown) => void) | undefined = undefined;
+    (dtfAPI.getChannels as unknown as Mock).mockReturnValue(
       new Promise((r) => {
         resolve = r;
       })

@@ -3,7 +3,7 @@
 
 declare module "*.vue" {
   import type { DefineComponent } from "vue";
-  const component: DefineComponent<{}, {}, any>;
+  const component: DefineComponent<{}, {}, unknown>;
   export default component;
 }
 
@@ -26,7 +26,7 @@ declare global {
   namespace chrome {
     namespace storage {
       interface StorageArea {
-        get(keys?: string | string[] | object): Promise<any>;
+        get(keys?: string | string[] | object): Promise<unknown>;
         set(items: object): Promise<void>;
         remove(keys: string | string[]): Promise<void>;
         clear(): Promise<void>;
@@ -39,8 +39,8 @@ declare global {
 declare global {
   interface TampermonkeyGlobals {
     access_token?: string;
-    channels?: any[];
-    messages?: any[];
+    channels?: unknown[];
+    messages?: unknown[];
     new_messages_counter?: number | null;
   }
 }

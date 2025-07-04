@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { Teleport, onMounted } from "vue";
+import { onMounted } from "vue";
 import { useUIStore } from "@/stores/ui";
 // import { useChannelsStore } from "@/stores/channels";
 import ChannelsList from "./components/ChannelsList.vue";

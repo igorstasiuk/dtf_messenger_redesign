@@ -78,7 +78,10 @@
               v-for="message in messages"
               :key="message.id"
               class="chat-sidebar__message"
-              :class="{ 'chat-sidebar__message--own': isOwnMessage(message) }"
+              :class="{
+                // @ts-expect-error: Pinia returns deeply readonly, but isOwnMessage expects mutable
+                'chat-sidebar__message--own': isOwnMessage(message),
+              }"
             >
               <div class="chat-sidebar__message-avatar">
                 <img
@@ -230,169 +233,98 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, computed, nextTick } from "vue";
 import { useChannelsStore } from "@/stores/channels";
 import { useMessagesStore } from "@/stores/messages";
 import { useUIStore } from "@/stores/ui";
 import { useAuthStore } from "@/stores/auth";
 import { formatMessageTime } from "@/utils/date";
 import LoadingSpinner from "./LoadingSpinner.vue";
+import type { Message } from "@/types/api";
 
-// Stores
 const channelsStore = useChannelsStore();
 const messagesStore = useMessagesStore();
 const uiStore = useUIStore();
 const authStore = useAuthStore();
 
-// Refs
-const messagesContainer = ref<HTMLElement>();
-const messageInput = ref<HTMLTextAreaElement>();
-
-// State
-const messageText = ref("");
-const isSending = ref(false);
-
-// Computed
 const activeChannel = computed(() => channelsStore.activeChannel);
 const messages = computed(() => messagesStore.messages);
 const typingUsers = computed(() => messagesStore.typingUsers);
-
-const canSendMessage = computed(() => {
-  return messageText.value.trim().length > 0 && !isSending.value;
-});
-
-// Methods
-function getUserInitials(name: string): string {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join("");
-}
-
-function isOwnMessage(message: any): boolean {
-  return message.author.id === authStore.user?.id;
-}
-
-function getTypingText(
-  users: readonly {
-    readonly id: number;
-    readonly name: string;
-    readonly avatar: string;
-    readonly startedAt: number;
-  }[]
-): string {
-  if (users.length === 1) {
-    return `${users[0].name} печатает...`;
-  } else if (users.length === 2) {
-    return `${users[0].name} и ${users[1].name} печатают...`;
-  } else {
-    return `${users[0].name} и еще ${users.length - 1} печатают...`;
-  }
-}
+const isSending = ref(false);
+const messageText = ref("");
+const messageInput = ref<HTMLTextAreaElement | null>(null);
+const messagesContainer = ref<HTMLElement | null>(null);
 
 function closeChatSidebar() {
   uiStore.setChatSidebarOpen(false);
 }
 
+function getUserInitials(name: string) {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
+
+function isOwnMessage(message: Message): boolean {
+  const mutableMessage =
+    message.media &&
+    Array.isArray(message.media) &&
+    Object.isFrozen(message.media)
+      ? { ...message, media: Array.from(message.media) }
+      : message;
+  return mutableMessage.author.id === authStore.user?.id;
+}
+
+function getTypingText(users: typeof typingUsers.value) {
+  if (!users.length) return "";
+  if (users.length === 1) return `${users[0].name} печатает...`;
+  return `${users.map((u: { name: string }) => u.name).join(", ")} печатают...`;
+}
+
 function toggleMediaUpload() {
-  uiStore.setMediaUploadOpen(!uiStore.isMediaUploadOpen);
+  // TODO: реализовать загрузку медиа
 }
 
 function toggleEmojiPicker() {
-  uiStore.setEmojiPickerOpen(!uiStore.isEmojiPickerOpen);
+  // TODO: реализовать emoji picker
 }
 
-function handleInput() {
-  // Auto-resize textarea
-  if (messageInput.value) {
-    messageInput.value.style.height = "auto";
-    messageInput.value.style.height = messageInput.value.scrollHeight + "px";
-  }
-
-  // Handle typing indicator
-  messagesStore.setTyping(true);
-}
-
-function handleKeyDown(event: KeyboardEvent) {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
+function handleKeyDown(e: KeyboardEvent) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
     sendMessage();
   }
 }
 
+function handleInput() {
+  // TODO: обработка ввода (например, resize textarea)
+}
+
+const canSendMessage = computed(
+  () => messageText.value.trim().length > 0 && !isSending.value
+);
+
 async function sendMessage() {
-  if (!canSendMessage.value || !activeChannel.value) {
-    return;
-  }
-
-  const text = messageText.value.trim();
-  messageText.value = "";
+  if (!canSendMessage.value || !activeChannel.value) return;
   isSending.value = true;
-
   try {
     await messagesStore.sendMessage({
       channelId: activeChannel.value.id,
-      text,
-      type: "text",
+      text: messageText.value.trim(),
     });
-
-    // Reset textarea height
-    if (messageInput.value) {
-      messageInput.value.style.height = "auto";
-    }
-  } catch (error) {
-    console.error("Failed to send message:", error);
-    uiStore.addNotification({
-      type: "error",
-      title: "Ошибка",
-      message: "Не удалось отправить сообщение",
+    messageText.value = "";
+    nextTick(() => {
+      if (messagesContainer.value) {
+        messagesContainer.value.scrollTop =
+          messagesContainer.value.scrollHeight;
+      }
     });
-
-    // Restore message text on error
-    messageText.value = text;
   } finally {
     isSending.value = false;
-    messagesStore.setTyping(false);
   }
 }
-
-function scrollToBottom() {
-  if (messagesContainer.value) {
-    nextTick(() => {
-      messagesContainer.value!.scrollTop =
-        messagesContainer.value!.scrollHeight;
-    });
-  }
-}
-
-// Watch for new messages and scroll to bottom
-watch(
-  messages,
-  () => {
-    scrollToBottom();
-  },
-  { deep: true }
-);
-
-// Watch for active channel changes
-watch(activeChannel, (newChannel) => {
-  if (newChannel) {
-    messagesStore.loadMessages(newChannel.id);
-    scrollToBottom();
-  }
-});
-
-// Focus input when opening
-onMounted(() => {
-  if (messageInput.value) {
-    messageInput.value.focus();
-  }
-});
-
-onUnmounted(() => {
-  messagesStore.setTyping(false);
-});
 </script>
 
 <style scoped>

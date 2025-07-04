@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref, computed, readonly } from "vue";
 import type { AuthUser } from "@/types/api";
 import type { BroadcastChannelEvent } from "@/types/auth";
+import { useNotifications } from "@/composables";
 
 export const useAuthStore = defineStore("auth", () => {
   // State
@@ -145,14 +146,34 @@ export const useAuthStore = defineStore("auth", () => {
 
       windowKeys.forEach((key) => {
         try {
-          const value = (window as any)[key];
-          if (value && typeof value === "object") {
+          const value = (window as unknown as Record<string, unknown>)[key];
+          if (value && typeof value === "object" && value !== null) {
+            const token =
+              (
+                value as {
+                  accessToken?: string;
+                  access_token?: string;
+                  token?: string;
+                }
+              ).accessToken ||
+              (value as { access_token?: string }).access_token ||
+              (value as { token?: string }).token;
+            if (token) {
+              return token;
+            }
           }
         } catch (e) {
           // Ignore access errors
         }
       });
-    } catch (error) {}
+    } catch (error) {
+      const { showError } = useNotifications();
+      if (error instanceof Error) {
+        showError("Ошибка при извлечении токена из страницы", error.message);
+      } else {
+        showError("Ошибка при извлечении токена из страницы", String(error));
+      }
+    }
 
     return null;
   }
@@ -236,7 +257,14 @@ export const useAuthStore = defineStore("auth", () => {
         "dtf-messenger-session",
         JSON.stringify(sessionData)
       );
-    } catch (error) {}
+    } catch (error) {
+      const { showError } = useNotifications();
+      if (error instanceof Error) {
+        showError("Ошибка при сохранении сессии", error.message);
+      } else {
+        showError("Ошибка при сохранении сессии", String(error));
+      }
+    }
   }
 
   function loadPersistedSession() {
@@ -276,7 +304,14 @@ export const useAuthStore = defineStore("auth", () => {
   function clearSession() {
     try {
       localStorage.removeItem("dtf-messenger-session");
-    } catch (error) {}
+    } catch (error) {
+      const { showError } = useNotifications();
+      if (error instanceof Error) {
+        showError("Ошибка при очистке сессии", error.message);
+      } else {
+        showError("Ошибка при очистке сессии", String(error));
+      }
+    }
   }
 
   // Auto-refresh token before expiry
@@ -303,6 +338,8 @@ export const useAuthStore = defineStore("auth", () => {
     const hasPersistedSession = loadPersistedSession();
 
     if (hasPersistedSession) {
+      const { showSuccess } = useNotifications();
+      showSuccess("Сессия загружена", "Сессия загружена успешно");
     } else {
       tryExtractTokenFromPage();
     }

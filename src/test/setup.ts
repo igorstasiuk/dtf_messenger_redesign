@@ -54,13 +54,13 @@ Object.defineProperty(global, "chrome", {
 // Mock BroadcastChannel
 class MockBroadcastChannel {
   name: string;
-  onmessage: ((event: any) => void) | null = null;
+  onmessage: ((event: unknown) => void) | null = null;
 
   constructor(name: string) {
     this.name = name;
   }
 
-  postMessage(_data: any) {
+  postMessage(_data: unknown) {
     // Mock implementation
   }
 

@@ -160,7 +160,7 @@ export default {
     },
   },
   plugins: [
-    function ({ addComponents, theme }) {
+    function ({ addComponents }) {
       addComponents({
         // DTF Button Components
         ".btn-dtf": {

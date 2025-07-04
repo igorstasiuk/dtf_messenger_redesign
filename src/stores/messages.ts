@@ -5,6 +5,7 @@ import { dtfAPI } from "@/utils/api";
 import { useAuthStore } from "./auth";
 import { useChannelsStore } from "./channels";
 import { getCurrentTimestamp } from "@/utils/date";
+import { useNotifications } from "@/composables";
 
 export const useMessagesStore = defineStore("messages", () => {
   // State
@@ -13,7 +14,9 @@ export const useMessagesStore = defineStore("messages", () => {
   const hasMoreMessages = ref(true);
   const error = ref<string | null>(null);
   const lastFetch = ref<number | null>(null);
-  const typingUsers = ref<any[]>([]);
+  const typingUsers = ref<
+    { id: number; name: string; avatar: string; startedAt: number }[]
+  >([]);
   const scrollPosition = ref(0);
 
   // Message composition state
@@ -111,7 +114,12 @@ export const useMessagesStore = defineStore("messages", () => {
   }
 
   // Typing indicators
-  function addTypingUser(user: any) {
+  function addTypingUser(user: {
+    id: number;
+    name: string;
+    avatar: string;
+    startedAt: number;
+  }) {
     const existingIndex = typingUsers.value.findIndex((u) => u.id === user.id);
     if (existingIndex >= 0) {
       typingUsers.value[existingIndex] = user;
@@ -220,9 +228,8 @@ export const useMessagesStore = defineStore("messages", () => {
     channelId: number;
     text: string;
     media?: File[];
-    type?: string;
   }) {
-    const { channelId, text, media = [], type: _type = "text" } = params;
+    const { channelId, text, media = [] } = params;
     const authStore = useAuthStore();
 
     if (!authStore.isAuthenticated) {
@@ -238,7 +245,7 @@ export const useMessagesStore = defineStore("messages", () => {
     setError(null);
 
     try {
-      const uploadedMedia: any[] = [];
+      const uploadedMedia: import("@/types/api").MediaFile[] = [];
 
       if (media.length > 0) {
         isUploading.value = true;
@@ -249,7 +256,14 @@ export const useMessagesStore = defineStore("messages", () => {
             if (uploadResponse.success && uploadResponse.result) {
               uploadedMedia.push(uploadResponse.result);
             }
-          } catch (uploadError) {}
+          } catch (uploadError) {
+            const { showError } = useNotifications();
+            if (uploadError instanceof Error) {
+              showError("Ошибка при загрузке файла", uploadError.message);
+            } else {
+              showError("Ошибка при загрузке файла", String(uploadError));
+            }
+          }
         }
 
         isUploading.value = false;
@@ -300,7 +314,14 @@ export const useMessagesStore = defineStore("messages", () => {
         const channelsStore = useChannelsStore();
         channelsStore.updateUnreadCount(channelId, 0);
       }
-    } catch (error) {}
+    } catch (error) {
+      const { showError } = useNotifications();
+      if (error instanceof Error) {
+        showError("Ошибка при отметке канала как прочитанного", error.message);
+      } else {
+        showError("Ошибка при отметке канала как прочитанного", String(error));
+      }
+    }
   }
 
   // Alias for component compatibility

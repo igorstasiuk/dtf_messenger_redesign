@@ -151,7 +151,20 @@
                   v-if="channel.lastMessage"
                   class="channel-item__last-message"
                 >
-                  {{ getLastMessagePreview(channel.lastMessage) }}
+                  {{
+                    getLastMessagePreview(
+                      channel.lastMessage &&
+                        channel.lastMessage.media &&
+                        Object.isFrozen(channel.lastMessage.media)
+                        ? {
+                            ...channel.lastMessage,
+                            media: Array.from(channel.lastMessage.media).map(
+                              (m: MediaFile) => ({ ...m })
+                            ),
+                          }
+                        : channel.lastMessage
+                    )
+                  }}
                 </p>
 
                 <div class="channel-item__meta">
@@ -227,74 +240,30 @@ import { useChannelsStore } from "@/stores/channels";
 import { useUIStore } from "@/stores/ui";
 import { getTimeAgo } from "@/utils/date";
 import LoadingSpinner from "./LoadingSpinner.vue";
+import type { Message, MediaFile, Channel } from "@/types/api";
 
-// Emits
-const emit = defineEmits<{
-  "select-channel": [channelId: number];
-}>();
+const emit = defineEmits<{ (e: "select-channel", channelId: number): void }>();
 
-// Stores
 const channelsStore = useChannelsStore();
 const uiStore = useUIStore();
 
-// Reactive data
 const searchQuery = ref("");
-const showCreateChannelDialog = ref(false);
-const newChannelName = ref("");
 const isCreatingChannel = ref(false);
-
-// Computed
+const newChannelName = ref("");
+const showCreateChannelDialog = ref(false);
 const isLoading = computed(() => channelsStore.isLoading);
 const activeChannelId = computed(() => channelsStore.activeChannelId);
 
-const filteredChannels = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return channelsStore.channels;
-  }
-
+const filteredChannels = computed<Channel[]>(() => {
+  if (!searchQuery.value.trim()) return channelsStore.channels as Channel[];
   const query = searchQuery.value.toLowerCase();
-  return channelsStore.channels.filter((channel: any) =>
+  return (channelsStore.channels as Channel[]).filter((channel: Channel) =>
     channel.title.toLowerCase().includes(query)
   );
 });
 
-// Methods
-function selectChannel(channelId: number) {
-  emit("select-channel", channelId);
-}
-
 function closeChannelsList() {
-  uiStore.setChannelsListOpen(false);
-}
-
-function getChannelInitials(name: string): string {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((word) => word.charAt(0).toUpperCase())
-    .join("");
-}
-
-function getLastMessagePreview(message: any): string {
-  if (!message) return "";
-
-  // Handle different message types
-  if (message.type === "text") {
-    return message.content.length > 50
-      ? message.content.substring(0, 50) + "..."
-      : message.content;
-  } else if (message.type === "image") {
-    return "📷 Изображение";
-  } else if (message.type === "file") {
-    return "📎 Файл";
-  }
-
-  return "Сообщение";
-}
-
-function formatTime(timestamp: string | Date): string {
-  const date = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
-  return getTimeAgo(Math.floor(date.getTime() / 1000));
+  uiStore.setChatSidebarOpen(false);
 }
 
 function closeCreateChannelDialog() {
@@ -302,33 +271,56 @@ function closeCreateChannelDialog() {
   newChannelName.value = "";
 }
 
-async function createChannel() {
-  if (!newChannelName.value.trim() || isCreatingChannel.value) {
-    return;
+function getChannelInitials(title: string) {
+  return title
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
+
+function getLastMessagePreview(message?: Message): string {
+  if (!message) return "";
+  let msg: Message = message;
+  if (
+    message.media &&
+    Array.isArray(message.media) &&
+    Object.isFrozen(message.media)
+  ) {
+    msg = {
+      ...message,
+      media: Array.from(message.media).map((m: MediaFile) => ({ ...m })),
+    };
   }
+  if (msg.type === "text") {
+    return msg.text.length > 50 ? msg.text.substring(0, 50) + "..." : msg.text;
+  } else if (msg.type === "media") {
+    return "📷 Медиа";
+  } else if (msg.type === "system") {
+    return "Системное сообщение";
+  }
+  return "Сообщение";
+}
 
+function formatTime(date: Date | number) {
+  return getTimeAgo(
+    typeof date === "number" ? date : Math.floor(date.getTime() / 1000)
+  );
+}
+
+function selectChannel(channelId: number) {
+  emit("select-channel", channelId);
+}
+
+async function createChannel() {
+  if (!newChannelName.value.trim()) return;
+  isCreatingChannel.value = true;
   try {
-    isCreatingChannel.value = true;
-
     await channelsStore.createChannel({
       name: newChannelName.value.trim(),
       type: "group",
     });
-
-    uiStore.addNotification({
-      type: "success",
-      title: "Канал создан",
-      message: `Канал "${newChannelName.value}" успешно создан`,
-    });
-
     closeCreateChannelDialog();
-  } catch (error) {
-    console.error("Failed to create channel:", error);
-    uiStore.addNotification({
-      type: "error",
-      title: "Ошибка",
-      message: "Не удалось создать канал",
-    });
   } finally {
     isCreatingChannel.value = false;
   }

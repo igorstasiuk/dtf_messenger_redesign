@@ -16,6 +16,10 @@
 const { small = false } = defineProps<{ small?: boolean }>();
 </script>
 
+<script lang="ts">
+export default {};
+</script>
+
 <style scoped>
 .loading-spinner {
   @apply inline-flex items-center justify-center;

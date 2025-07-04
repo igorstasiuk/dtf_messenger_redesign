@@ -109,15 +109,39 @@ export type ChannelAction =
   | { type: "SET_LAST_FETCH"; payload: number };
 
 // Channel events for real-time updates
-export interface ChannelEvent {
-  type:
-    | "channel_created"
-    | "channel_updated"
-    | "channel_deleted"
-    | "member_joined"
-    | "member_left";
-  channelId: number;
-  data: any;
-  timestamp: number;
-  userId?: number;
-}
+export type ChannelEvent =
+  | {
+      type: "channel_created";
+      channelId: number;
+      data: Channel;
+      timestamp: number;
+      userId?: number;
+    }
+  | {
+      type: "channel_updated";
+      channelId: number;
+      data: Partial<Channel>;
+      timestamp: number;
+      userId?: number;
+    }
+  | {
+      type: "channel_deleted";
+      channelId: number;
+      data: { reason?: string };
+      timestamp: number;
+      userId?: number;
+    }
+  | {
+      type: "member_joined";
+      channelId: number;
+      data: Author;
+      timestamp: number;
+      userId?: number;
+    }
+  | {
+      type: "member_left";
+      channelId: number;
+      data: Author;
+      timestamp: number;
+      userId?: number;
+    };

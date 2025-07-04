@@ -1,7 +1,7 @@
 // DTF.ru API Types for Messenger Extension
 
 // Base API Response
-export interface APIResponse<T = any> {
+export interface APIResponse<T = unknown> {
   result?: T;
   error?: {
     code: number;
@@ -157,18 +157,32 @@ export interface HealthCheckResponse {
 }
 
 // WebSocket event types (for future real-time support)
-export interface WebSocketEvent {
-  type: "message" | "channel_update" | "user_status" | "typing";
-  data: any;
-  timestamp: number;
-  channelId?: number;
-}
+export type WebSocketEvent =
+  | { type: "message"; data: Message; timestamp: number; channelId?: number }
+  | {
+      type: "channel_update";
+      data: Channel;
+      timestamp: number;
+      channelId?: number;
+    }
+  | {
+      type: "user_status";
+      data: AuthUser;
+      timestamp: number;
+      channelId?: number;
+    }
+  | {
+      type: "typing";
+      data: { channelId: number; userId: number; isTyping: boolean };
+      timestamp: number;
+      channelId?: number;
+    };
 
 // Error types
 export interface APIError {
   code: number;
   message: string;
-  details?: any;
+  details?: string | { field: string; message: string }[];
   timestamp: number;
 }
 

@@ -78,12 +78,37 @@ export interface DTFAuthIntegration {
 }
 
 // Authentication events
-export interface AuthEvent {
-  type: "login" | "logout" | "token_refresh" | "session_expire" | "auth_error";
-  timestamp: number;
-  details?: any;
-  source: "broadcast" | "manual" | "auto";
-}
+export type AuthEvent =
+  | {
+      type: "login";
+      timestamp: number;
+      details?: { user: AuthUser };
+      source: "broadcast" | "manual" | "auto";
+    }
+  | {
+      type: "logout";
+      timestamp: number;
+      details?: { reason?: string };
+      source: "broadcast" | "manual" | "auto";
+    }
+  | {
+      type: "token_refresh";
+      timestamp: number;
+      details?: { oldToken: string; newToken: string };
+      source: "broadcast" | "manual" | "auto";
+    }
+  | {
+      type: "session_expire";
+      timestamp: number;
+      details?: { expiredAt: number };
+      source: "broadcast" | "manual" | "auto";
+    }
+  | {
+      type: "auth_error";
+      timestamp: number;
+      details?: { error: string };
+      source: "broadcast" | "manual" | "auto";
+    };
 
 // User profile update
 export interface ProfileUpdate {

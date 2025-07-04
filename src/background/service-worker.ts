@@ -101,7 +101,7 @@ async function getSettings() {
 }
 
 // Update user settings
-async function updateSettings(newSettings: Record<string, any>) {
+async function updateSettings(newSettings: Record<string, unknown>) {
   const currentSettings = await getSettings();
   const updatedSettings = { ...currentSettings, ...newSettings };
   await chrome.storage.sync.set({ settings: updatedSettings });

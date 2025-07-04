@@ -1,6 +1,7 @@
 import { computed, onMounted, onUnmounted } from "vue";
 import { useAuthStore } from "@/stores/auth";
 import { dtfAPI } from "@/utils/api";
+import type { AuthUser } from "@/types/api";
 
 /**
  * Authentication composable with DTF.ru BroadcastChannel integration
@@ -36,7 +37,7 @@ export function useAuth() {
     dtfAPI.setAccessToken(token);
   }
 
-  function updateUser(userData: any) {
+  function updateUser(userData: AuthUser) {
     authStore.setUser(userData);
   }
 
